@@ -208,6 +208,47 @@ impl Drop for LogWritten {
     }
 }
 
+/// Variables a launcher hands down that would break the programs started from here: an Electron
+/// application started with `ELECTRON_RUN_AS_NODE` runs as a plain Node process (no window, no
+/// log, gone in about 100 ms), `NODE_OPTIONS` changes what a Node program does, and a proxy for a
+/// local port dies with the terminal that exported it.
+const INHERITED_ENV: [&str; 5] = [
+    "ELECTRON_RUN_AS_NODE",
+    "ELECTRON_NO_ATTACH_CONSOLE",
+    "ELECTRON_ENABLE_LOGGING",
+    "ELECTRON_ENABLE_STACK_DUMPING",
+    "NODE_OPTIONS",
+];
+
+/// Drops `INHERITED_ENV` from this process, so that an icon, a URL or an update's setup started
+/// from here inherits a desktop environment, and drops a proxy that points at a local port, which
+/// is one left over from a terminal. Returns what was dropped for the log.
+fn drop_inherited_env() -> Vec<&'static str> {
+    let mut dropped = Vec::new();
+    for name in INHERITED_ENV {
+        if std::env::var_os(name).is_some() {
+            // SAFETY: called from `main` before any other thread exists.
+            unsafe { std::env::remove_var(name) };
+            dropped.push(name);
+        }
+    }
+    for name in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"] {
+        let Some(value) = std::env::var_os(name) else {
+            continue;
+        };
+        let value = value.to_string_lossy().to_ascii_lowercase();
+        if ["127.0.0.1", "localhost", "[::1]"]
+            .iter()
+            .any(|host| value.contains(host))
+        {
+            // SAFETY: as above.
+            unsafe { std::env::remove_var(name) };
+            dropped.push(name);
+        }
+    }
+    dropped
+}
+
 fn main() -> Result<()> {
     // Set by the watchdog when it starts PecoFence again after a crash (the exit code). Taken
     // out of the environment at once, so programs started from here (an update's setup) do not
@@ -217,6 +258,8 @@ fn main() -> Result<()> {
         // SAFETY: first statement of main, before any other thread exists.
         unsafe { std::env::remove_var("PECOFENCE_RESTARTED_AFTER") };
     }
+    // Programs started from here inherit this environment (see `drop_inherited_env`).
+    let dropped_env = drop_inherited_env();
     // `PECOFENCE_INSTANCE=<name>` runs a second, independent instance (developer testing with
     // `--portable`); the default name keeps one PecoFence per session. Checked before logging
     // starts: a second launch must leave the running instance's log files alone (it used to
@@ -246,6 +289,9 @@ fn main() -> Result<()> {
     // Lines logged before an early return below (a start that failed) are waited for.
     let _log = LogWritten;
     install_panic_hook();
+    if !dropped_env.is_empty() {
+        tracing::warn!(dropped = %dropped_env.join(","), "inherited environment dropped");
+    }
     if let Some(dir) = log_dir() {
         pecofence_platform::crashlog::install(dir, instance.as_deref().unwrap_or("main"));
     }
