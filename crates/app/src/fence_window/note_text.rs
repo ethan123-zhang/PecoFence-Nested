@@ -1,7 +1,7 @@
 //! 便签与待办: the note's rows as the fence draws them. A note always shows its list view;
 //! there is no text editor behind it.
 
-use super::note_tasks_view::{Row, drop_target, nested_rows, row_index};
+use super::note_tasks_view::{DropSpot, Row, drop_edge, drop_target, nested_rows, row_index};
 use super::*;
 use pecofence_core::i18n;
 use pecofence_core::note::{self, NoteLine};
@@ -23,6 +23,14 @@ pub(super) struct TodoDrag {
     client: (i32, i32),
     scroll_from: f32,
     auto: Option<(Instant, Instant)>,
+}
+
+/// What a release at the pointer would do: the drop, the row it is over and the insertion
+/// boundary to draw (unscrolled content DIPs).
+pub(super) struct NoteDrop {
+    pub(super) spot: DropSpot,
+    row: usize,
+    boundary: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -337,7 +345,7 @@ impl FenceViewState {
         spans: &[(f32, f32)],
         scroll: f32,
         height: f32,
-    ) -> Option<(TaskId, bool, f32)> {
+    ) -> Option<NoteDrop> {
         if !self.in_note_text(client.0, client.1) {
             return None;
         }
@@ -347,24 +355,59 @@ impl FenceViewState {
         }
         let y = y + scroll;
         let hit = row_index(spans, y)?;
-        let (top, height) = spans[hit];
-        let after = y >= top + height * 0.5;
-        let (target, after) = drop_target(rows, task, hit, after)?;
-        // A drag only reorders siblings: a drop on a task under another parent does nothing.
+        let (top, row_height) = *spans.get(hit)?;
+        let fraction = ((y - top) / row_height).clamp(0.0, 1.0);
         let text = self.note.as_deref()?;
         let hierarchy = self.note_tasks.hierarchy(text);
-        if hierarchy.node(task)?.parent != hierarchy.node(target)?.parent {
+        let Some(after) = drop_edge(fraction) else {
+            // The middle of a row: become its last subtask. A folded parent is fine.
+            let Row::Open(parent, ..) = *rows.get(hit)? else {
+                return None;
+            };
+            if parent == task || hierarchy.descendants(task).contains(&parent) {
+                return None;
+            }
+            // Already the parent's last open subtask: the drop would change nothing.
+            if hierarchy
+                .children(Some(parent))
+                .into_iter()
+                .rfind(|node| !node.done)
+                .is_some_and(|node| node.id == task)
+            {
+                return None;
+            }
+            return Some(NoteDrop {
+                spot: DropSpot::Into { parent },
+                row: hit,
+                boundary: top + row_height * 0.5,
+            });
+        };
+        let Row::Open(target, ..) = *rows.get(hit)? else {
             return None;
-        }
-        Some((
-            target,
-            after,
-            if after {
-                top + height
-            } else {
-                (top - 1.0).max(0.0)
-            },
-        ))
+        };
+        let boundary = if after {
+            top + row_height
+        } else {
+            (top - 1.0).max(0.0)
+        };
+        let from = hierarchy.node(task)?;
+        let target_parent = hierarchy.node(target)?.parent;
+        let spot = if target_parent == from.parent {
+            // Among siblings the drop keeps reordering as it always did.
+            let (target, after) = drop_target(rows, task, hit, after)?;
+            DropSpot::Sibling { target, after }
+        } else {
+            // Another parent's row: the block re-hangs there, before or after it.
+            if hierarchy.descendants(task).contains(&target) {
+                return None;
+            }
+            DropSpot::Beside { target, after }
+        };
+        Some(NoteDrop {
+            spot,
+            row: hit,
+            boundary,
+        })
     }
 
     pub(super) fn note_insertion(
@@ -374,8 +417,20 @@ impl FenceViewState {
         scroll: f32,
     ) -> Option<f32> {
         let d = self.todo_drag.as_ref().filter(|d| d.moved)?;
-        self.note_drop_at(d.task, d.client, rows, spans, scroll, f32::INFINITY)
-            .map(|(_, _, boundary)| boundary)
+        let drop = self.note_drop_at(d.task, d.client, rows, spans, scroll, f32::INFINITY)?;
+        (!matches!(drop.spot, DropSpot::Into { .. })).then_some(drop.boundary)
+    }
+
+    /// The row a drop would nest the dragged task into, for its highlight.
+    pub(super) fn note_drop_row(
+        &self,
+        rows: &[Row],
+        spans: &[(f32, f32)],
+        scroll: f32,
+    ) -> Option<usize> {
+        let d = self.todo_drag.as_ref().filter(|d| d.moved)?;
+        let drop = self.note_drop_at(d.task, d.client, rows, spans, scroll, f32::INFINITY)?;
+        matches!(drop.spot, DropSpot::Into { .. }).then_some(drop.row)
     }
 
     pub(super) fn end_todo_drag(&mut self, commit: bool) -> Option<Command> {
@@ -402,12 +457,25 @@ impl FenceViewState {
         }
         self.content_busy = true;
         self.frames.request();
-        let (target, after, _) = drop?;
-        Some(Command::MoveNoteTask {
-            fence: self.active,
-            task: d.task,
-            target,
-            after,
+        let spot = drop?.spot;
+        Some(match spot {
+            DropSpot::Sibling { target, after } => Command::MoveNoteTask {
+                fence: self.active,
+                task: d.task,
+                target,
+                after,
+            },
+            DropSpot::Beside { target, after } => Command::MoveNoteTaskBeside {
+                fence: self.active,
+                task: d.task,
+                target,
+                after,
+            },
+            DropSpot::Into { parent } => Command::MoveNoteTaskInto {
+                fence: self.active,
+                task: d.task,
+                parent,
+            },
         })
     }
 

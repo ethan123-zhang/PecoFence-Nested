@@ -1811,11 +1811,14 @@ impl FenceViewState {
             Some(PressTarget::NoteLink(line, start)) => self.press_inside.then_some((line, start)),
             _ => self.note_link_hover,
         };
-        let insertion = if self.todo_drag.is_some() {
+        let (insertion, drop_nest) = if self.todo_drag.is_some() {
             let spans = chrome.note_row_spans(width_dip, text_size, &lines)?;
-            self.note_insertion(&rows, &spans, scroll)
+            (
+                self.note_insertion(&rows, &spans, scroll),
+                self.note_drop_row(&rows, &spans, scroll),
+            )
         } else {
-            None
+            (None, None)
         };
         let control_hot = self.note_control_draw();
         let banner = banner_texts
@@ -1840,6 +1843,7 @@ impl FenceViewState {
                     hot,
                     link_hot,
                     insertion,
+                    drop_nest,
                     control_hot,
                     banner.as_ref(),
                 )?;

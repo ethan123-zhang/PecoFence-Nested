@@ -1180,6 +1180,47 @@ impl App {
         }
     }
 
+    /// A drop on the edge of a row under another parent: the task re-hangs with the row's
+    /// parent, so a subtask can also be dragged back out of its project.
+    pub(super) fn move_note_task_beside(
+        &mut self,
+        fence: FenceId,
+        task: TaskId,
+        target: TaskId,
+        after: bool,
+    ) {
+        let Some(before_text) = self.state.note_text(fence).map(str::to_string) else {
+            return;
+        };
+        let before = self.state.note_tasks(fence);
+        if self.state.move_note_task_beside(fence, task, target, after) {
+            let switched_to_manual = before.mode == NoteSortMode::Priority;
+            self.record_note_reparent(fence, before_text, before);
+            self.push_note(fence);
+            if switched_to_manual
+                && let Some(w) = self.window_for(fence).filter(|w| w.active_fence() == fence)
+            {
+                w.show_note_manual_notice(fence);
+            }
+        } else {
+            self.notice_save_failure();
+        }
+    }
+
+    /// A drop in the middle of a row: the task becomes that row's last subtask.
+    pub(super) fn move_note_task_into(&mut self, fence: FenceId, task: TaskId, parent: TaskId) {
+        let Some(before_text) = self.state.note_text(fence).map(str::to_string) else {
+            return;
+        };
+        let before = self.state.note_tasks(fence);
+        if self.state.move_note_task_into(fence, task, parent) {
+            self.record_note_reparent(fence, before_text, before);
+            self.push_note(fence);
+        } else {
+            self.notice_save_failure();
+        }
+    }
+
     pub(super) fn note_task_menu(&mut self, fence: FenceId, task: TaskId, x: i32, y: i32) {
         let Some(owner) = self
             .window_for(fence)

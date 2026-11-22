@@ -3380,6 +3380,40 @@ impl AppState {
         tasks.move_task(text, task, target, after) && self.commit_note(id, None, tasks)
     }
 
+    /// Moves one to-do beside another task of a different parent: the note's text is
+    /// rewritten so it becomes a sibling of `target`, which is how a subtask is dragged
+    /// back out of its project.
+    pub fn move_note_task_beside(
+        &mut self,
+        id: FenceId,
+        task: TaskId,
+        target: TaskId,
+        after: bool,
+    ) -> bool {
+        let Some(text) = self.note_text(id) else {
+            return false;
+        };
+        let mut tasks = self.note_tasks(id);
+        let Some(next) = tasks.move_task_beside(text, task, target, after) else {
+            return false;
+        };
+        self.commit_note(id, Some(next), tasks)
+    }
+
+    /// Moves one to-do and its subtasks under `parent`, after the parent's last subtask; a
+    /// folded parent unfolds so the moved task shows.
+    pub fn move_note_task_into(&mut self, id: FenceId, task: TaskId, parent: TaskId) -> bool {
+        let Some(text) = self.note_text(id) else {
+            return false;
+        };
+        let mut tasks = self.note_tasks(id);
+        let Some(next) = tasks.move_task_into(text, task, parent) else {
+            return false;
+        };
+        tasks.set_collapsed(parent, false);
+        self.commit_note(id, Some(next), tasks)
+    }
+
     pub fn toggle_note_task(&mut self, id: FenceId, task: TaskId) -> bool {
         let Some(text) = self.note_text(id) else {
             return false;
@@ -3440,6 +3474,21 @@ impl AppState {
         self.note_text(id).is_some()
             && self.note_tasks(id) == *after
             && self.commit_note(id, None, before)
+    }
+
+    /// Puts back a drag that rewrote the note's text (a re-hang or a fold), only while the
+    /// note still holds exactly what the drag left.
+    pub fn undo_note_reparent(
+        &mut self,
+        id: FenceId,
+        before_text: &str,
+        before: NoteTasks,
+        after_text: &str,
+        after: &NoteTasks,
+    ) -> bool {
+        self.note_text(id) == Some(after_text)
+            && self.note_tasks(id) == *after
+            && self.commit_note(id, Some(before_text.to_string()), before)
     }
 
     /// The saver thread remains the only writer. Publish this candidate to AppState only
@@ -3970,6 +4019,42 @@ mod tests {
         assert!(state.undo_note_move(id, before.clone(), &after));
         assert_eq!(state.store.load().into_config().note_tasks[&id], before);
         assert!(!state.undo_note_move(id, after.clone(), &after));
+    }
+
+    #[test]
+    fn a_nest_drag_rewrites_the_note_and_undo_puts_text_and_details_back() {
+        let mut state = test_state();
+        let text = "[ ] A\n[ ] B\n  [ ] B1";
+        let id = state.new_note("tasks", rect(0, 0, 320, 240), text).unwrap();
+        let ids: Vec<_> = state
+            .note_tasks(id)
+            .hierarchy(text)
+            .nodes()
+            .iter()
+            .map(|node| node.id)
+            .collect();
+        let [a, b, _b1] = ids.try_into().unwrap();
+        assert!(state.set_note_priority(id, b, Priority::High));
+        assert!(state.set_note_task_collapsed(id, a, true));
+        let before_text = state.note_text(id).unwrap().to_string();
+        let before = state.note_tasks(id);
+        assert!(state.move_note_task_into(id, b, a));
+        let after_text = "[ ] A\n  [ ] B\n    [ ] B1";
+        assert_eq!(state.note_text(id), Some(after_text));
+        // The whole block moved, the details followed, and the folded parent unfolds.
+        let after = state.note_tasks(id);
+        let hierarchy = after.hierarchy(after_text);
+        assert_eq!(hierarchy.node(b).unwrap().parent, Some(a));
+        assert_eq!(hierarchy.nodes()[2].depth, 2);
+        assert_eq!(after.priority(b), Priority::High);
+        assert!(!after.is_collapsed(a));
+        // Undo puts the text and the metadata back, but only while the note still holds
+        // exactly what the drag left.
+        assert!(!state.undo_note_reparent(id, &before_text, before.clone(), "[ ] changed", &after));
+        assert!(state.undo_note_reparent(id, &before_text, before.clone(), after_text, &after));
+        assert_eq!(state.note_text(id), Some(before_text.as_str()));
+        assert_eq!(state.store.load().into_config().note_tasks[&id], before);
+        assert!(state.note_tasks(id).is_collapsed(a));
     }
 
     #[test]

@@ -3129,6 +3129,17 @@ impl App {
                 target,
                 after,
             } => self.move_note_task(fence, task, target, after),
+            Command::MoveNoteTaskBeside {
+                fence,
+                task,
+                target,
+                after,
+            } => self.move_note_task_beside(fence, task, target, after),
+            Command::MoveNoteTaskInto {
+                fence,
+                task,
+                parent,
+            } => self.move_note_task_into(fence, task, parent),
             Command::AddNoteTask { fence, parent } => self.add_note_task(fence, parent),
             Command::ToggleNoteExpand { fence, task } => {
                 self.toggle_note_task_collapsed(fence, task);

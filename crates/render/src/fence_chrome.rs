@@ -4970,7 +4970,8 @@ impl FenceChrome {
     /// the line whose check box is under the pointer (true: held). A web address
     /// (`pecofence_core::note::links`) is drawn as a link, in the accent ink, the one at
     /// `link_hot` (line, start) underlined. `insertion` is the current drop boundary in
-    /// unscrolled content DIPs.
+    /// unscrolled content DIPs; `drop_nest` is the row a drop would make the dragged task's
+    /// parent, painted as a soft accent band.
     /// Returns the check boxes and the links for hit-testing.
     #[allow(clippy::too_many_arguments)]
     pub fn draw_note(
@@ -4989,6 +4990,7 @@ impl FenceChrome {
         hot: Option<(usize, bool)>,
         link_hot: Option<(usize, usize)>,
         insertion: Option<f32>,
+        drop_nest: Option<usize>,
         control_hot: Option<(usize, NoteControl, bool)>,
         banner: Option<&NoteBannerDraw<'_>>,
     ) -> Result<NoteDrawn> {
@@ -5040,7 +5042,17 @@ impl FenceChrome {
         let mut boxes = Vec::new();
         let mut links = Vec::new();
         let mut controls = Vec::new();
-        let row_spans = rows.iter().map(|r| (NOTE_PAD_TOP + r.y, r.h)).collect();
+        let row_spans: Vec<(f32, f32)> = rows.iter().map(|r| (NOTE_PAD_TOP + r.y, r.h)).collect();
+        if let Some(index) = drop_nest
+            && let Some(&(top, h)) = row_spans.get(index)
+        {
+            let y = top - scroll;
+            if y + h > 0.0 && y < height {
+                let band = Rect::from_xywh(NOTE_PAD_X, y, w, h);
+                let brush = session.create_solid_brush(with_alpha(theme.link_ink(), 0.14))?;
+                session.fill_rounded_rect(&RoundedRect::uniform(band, 4.0), &brush);
+            }
+        }
         for (i, (line, row)) in lines.iter().zip(rows).enumerate() {
             let y = NOTE_PAD_TOP + row.y - scroll;
             if y >= height {

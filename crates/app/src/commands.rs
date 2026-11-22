@@ -391,6 +391,20 @@ pub enum Command {
         target: pecofence_core::note_tasks::TaskId,
         after: bool,
     },
+    /// Release on the edge of a row under another parent: the block re-hangs from that
+    /// row's parent, before or after it.
+    MoveNoteTaskBeside {
+        fence: FenceId,
+        task: pecofence_core::note_tasks::TaskId,
+        target: pecofence_core::note_tasks::TaskId,
+        after: bool,
+    },
+    /// Release in the middle of a row: the task becomes that row's last subtask.
+    MoveNoteTaskInto {
+        fence: FenceId,
+        task: pecofence_core::note_tasks::TaskId,
+        parent: pecofence_core::note_tasks::TaskId,
+    },
     /// 新建项目 (parent `None`) or a task's ＋: a new task under that parent.
     AddNoteTask {
         fence: FenceId,

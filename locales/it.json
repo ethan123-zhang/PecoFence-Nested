@@ -561,6 +561,7 @@
   "点“撤销”，或在栅栏上按 Ctrl+Z，就能把它们放回原处。": "Fai clic su Annulla, o premi Ctrl+Z su un riquadro, per rimetterli a posto.",
   "永久删除的文件无法撤销。": "L’eliminazione definitiva non può essere annullata.",
   "便签在勾选后又改过，这一步无法撤销。": "La nota è cambiata dopo quel clic, quindi questo passo non può essere annullato.",
+  "便签在拖动后又改过，这一步无法撤销。": "La nota è cambiata dopo il trascinamento, quindi questo passo non può essere annullato.",
   "单击方框打勾；点标题打开详情；右上角排序可切换优先级/手动。": "Fai clic su una casella per spuntarla, su un titolo per aprirne i dettagli; la scritta di ordinamento in alto a destra alterna priorità/manuale.",
   "撤销": "Annulla",
   "其中的 {0} 个图标会回到“{1}”栅栏，文件本身不受影响。": "Le icone al suo interno ({0}) torneranno nel riquadro «{1}». I file non verranno modificati.",

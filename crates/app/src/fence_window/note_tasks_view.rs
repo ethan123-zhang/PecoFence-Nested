@@ -143,6 +143,18 @@ mod tests {
     }
 
     #[test]
+    fn a_row_has_three_drop_bands() {
+        assert_eq!(drop_edge(0.0), Some(false));
+        assert_eq!(drop_edge(0.29), Some(false));
+        assert_eq!(drop_edge(0.3), None);
+        assert_eq!(drop_edge(0.5), None);
+        assert_eq!(drop_edge(0.7), None);
+        assert_eq!(drop_edge(0.71), Some(true));
+        assert_eq!(drop_edge(1.0), Some(true));
+        assert_eq!(drop_edge(1.1), None);
+    }
+
+    #[test]
     fn only_effective_moves_within_the_open_rows_commit() {
         let rows = [
             Row::Heading,
@@ -304,6 +316,29 @@ pub(super) fn nested_rows(
         }
     }
     rows
+}
+
+/// Where a drag released over a row would put the task.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum DropSpot {
+    /// The dragged task and the row share a parent: reorder them (manual sequence only).
+    Sibling { target: TaskId, after: bool },
+    /// The task re-hangs from the row's parent, standing before or after the row.
+    Beside { target: TaskId, after: bool },
+    /// The task becomes the row's last subtask.
+    Into { parent: TaskId },
+}
+
+/// A row is split into three bands for a drop: the outer ones insert before/after the row,
+/// the middle one nests. `Some(after)` for an outer band, `None` for the middle.
+pub(super) fn drop_edge(fraction: f32) -> Option<bool> {
+    const EDGE: f32 = 0.3;
+    if !(0.0..=1.0).contains(&fraction) {
+        return None;
+    }
+    (fraction < EDGE)
+        .then_some(false)
+        .or_else(|| (fraction > 1.0 - EDGE).then_some(true))
 }
 
 /// Which task and side this drop would use, excluding the two representations of a no-op.

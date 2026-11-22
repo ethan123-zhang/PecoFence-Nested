@@ -62,6 +62,16 @@ pub(super) enum UndoStep {
         before: NoteTasks,
         after: NoteTasks,
     },
+    /// A drag that rewrote the note's text (a task re-hung under another parent): the text
+    /// and the metadata before it, so Ctrl+Z can put both back while the note still holds
+    /// what the drag left.
+    NoteReparent {
+        fence: FenceId,
+        before_text: String,
+        after_text: String,
+        before: NoteTasks,
+        after: NoteTasks,
+    },
     /// Folders or files made from a fence (made directly too): Ctrl+Z moves them to the
     /// Recycle Bin, as Explorer's own undo of 新建 does, without a record in Windows' undo list
     /// (a record would be the newest one there, and the next step handed to Windows would
@@ -126,6 +136,7 @@ impl UndoStep {
             Self::Renamed { .. } => "rename",
             Self::NoteTask { .. } => "note checkbox",
             Self::NoteMove { .. } => "note task moved",
+            Self::NoteReparent { .. } => "note task re-hung",
             Self::Created { .. } => "new item",
             Self::Shell { what } | Self::Permanent { what } => what,
             Self::Merged { .. } => "merge into tabs",
@@ -150,6 +161,21 @@ impl App {
     pub(super) fn record_note_move(&mut self, fence: FenceId, before: NoteTasks) {
         self.push_undo(UndoStep::NoteMove {
             fence,
+            before,
+            after: self.state.note_tasks(fence),
+        });
+    }
+
+    pub(super) fn record_note_reparent(
+        &mut self,
+        fence: FenceId,
+        before_text: String,
+        before: NoteTasks,
+    ) {
+        self.push_undo(UndoStep::NoteReparent {
+            fence,
+            before_text,
+            after_text: self.state.note_text(fence).unwrap_or_default().to_string(),
             before,
             after: self.state.note_tasks(fence),
         });
@@ -591,6 +617,32 @@ impl App {
                 after,
             } => {
                 if self.state.undo_note_move(fence, before, &after) {
+                    self.push_note(fence);
+                    1
+                } else {
+                    self.notice_save_failure();
+                    0
+                }
+            }
+            UndoStep::NoteReparent {
+                fence,
+                before_text,
+                after_text,
+                before,
+                after,
+            } => {
+                // The note must still hold what the drag left: an edit since then is newer.
+                if self.state.note_text(fence) != Some(after_text.as_str()) {
+                    tracing::info!(%fence, "note re-hang undo skipped: the note changed after the drag");
+                    self.toast(i18n::text("便签在拖动后又改过，这一步无法撤销。").to_string());
+                    0
+                } else if self.state.undo_note_reparent(
+                    fence,
+                    &before_text,
+                    before,
+                    &after_text,
+                    &after,
+                ) {
                     self.push_note(fence);
                     1
                 } else {

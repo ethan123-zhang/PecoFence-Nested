@@ -819,6 +819,188 @@ impl NoteTasks {
         true
     }
 
+    /// Moves `id` and its subtasks under `parent`, after the parent's last open subtask: the
+    /// note's text is rewritten so the block hangs one level deeper (at the columns a new
+    /// subtask gets, see [`Self::insert_task`]). Every task keeps its identity.
+    /// `None` when the drop changes nothing or is impossible (a cycle, a done task).
+    pub fn move_task_into(&mut self, text: &str, id: TaskId, parent: TaskId) -> Option<String> {
+        if id == parent {
+            return None;
+        }
+        let hierarchy = self.hierarchy(text);
+        let node = hierarchy.node(id)?;
+        let parent_node = hierarchy.node(parent)?;
+        let last_open_child = hierarchy
+            .children(Some(parent))
+            .into_iter()
+            .rfind(|child| !child.done);
+        if node.done
+            || parent_node.done
+            || hierarchy.descendants(id).contains(&parent)
+            || last_open_child.is_some_and(|child| child.id == id)
+        {
+            return None;
+        }
+        let raw: Vec<&str> = text.split('\n').collect();
+        let indent = leading_columns(raw.get(parent_node.line)?) + 2;
+        let before = subtree_end_line(&hierarchy, parent) + 1;
+        let (next, lines) = self.relocate(text, id, before, indent)?;
+        self.apply_line_map(&lines);
+        let moved = self.hierarchy(&next);
+        self.place_after_children(id, parent, &moved);
+        Some(next)
+    }
+
+    /// Moves `id` and its subtasks to stand before or after `sibling`, among the sibling's
+    /// own siblings: the block re-hangs from the sibling's parent, which may differ from
+    /// `id`'s (that is how a subtask is dragged back out). `None` for a cycle, a done task
+    /// or a drop that changes nothing.
+    pub fn move_task_beside(
+        &mut self,
+        text: &str,
+        id: TaskId,
+        sibling: TaskId,
+        after: bool,
+    ) -> Option<String> {
+        if id == sibling {
+            return None;
+        }
+        let hierarchy = self.hierarchy(text);
+        let node = hierarchy.node(id)?;
+        let sibling_node = hierarchy.node(sibling)?;
+        if node.done || sibling_node.done || hierarchy.descendants(id).contains(&sibling) {
+            return None;
+        }
+        let raw: Vec<&str> = text.split('\n').collect();
+        let indent = leading_columns(raw.get(sibling_node.line)?);
+        let before = if after {
+            subtree_end_line(&hierarchy, sibling) + 1
+        } else {
+            sibling_node.line
+        };
+        let was_manual = self.mode == SortMode::Manual;
+        let visible = self.open_ids(text);
+        let (next, lines) = self.relocate(text, id, before, indent)?;
+        self.apply_line_map(&lines);
+        // A positional drop is a manual placement: priority order gives way to what the
+        // note showed before the drag, exactly as a same-parent reorder does.
+        if !was_manual {
+            self.manual_order = Some(self.fresh_manual_order(&visible));
+            self.mode = SortMode::Manual;
+        }
+        self.place_beside(id, sibling, after);
+        Some(next)
+    }
+
+    /// The text with the block of `id` and its subtasks moved before the line at `before`
+    /// (an original line index) at `indent` leading columns; every line of the block keeps
+    /// the indentation it had relative to the block's first line. The returned map holds
+    /// each task line's new index, indexed by its old one. `None` for an overlap or when
+    /// the text would not change.
+    fn relocate(
+        &self,
+        text: &str,
+        id: TaskId,
+        before: usize,
+        indent: usize,
+    ) -> Option<(String, Vec<usize>)> {
+        let hierarchy = self.hierarchy(text);
+        let start = hierarchy.node(id)?.line;
+        let end = subtree_end_line(&hierarchy, id);
+        if before > start && before <= end {
+            return None;
+        }
+        let raw: Vec<&str> = text.split('\n').collect();
+        let base = leading_columns(raw.get(start)?);
+        let delta = indent as isize - base as isize;
+        let block: Vec<String> = raw[start..=end]
+            .iter()
+            .map(|line| reindent(line, delta))
+            .collect();
+        let at = if before <= start {
+            before
+        } else {
+            before - block.len()
+        };
+        fn push_block(out: &mut Vec<String>, lines: &mut [usize], block: &[String], start: usize) {
+            for (offset, line) in block.iter().enumerate() {
+                lines[start + offset] = out.len();
+                out.push(line.clone());
+            }
+        }
+        let mut lines = vec![0; raw.len()];
+        let mut out: Vec<String> = Vec::with_capacity(raw.len());
+        let mut inserted = false;
+        let mut remaining = 0;
+        for (index, line) in raw.iter().enumerate() {
+            if !inserted && remaining == at {
+                push_block(&mut out, &mut lines, &block, start);
+                inserted = true;
+            }
+            if (start..=end).contains(&index) {
+                continue;
+            }
+            lines[index] = out.len();
+            out.push((*line).to_string());
+            remaining += 1;
+        }
+        if !inserted {
+            push_block(&mut out, &mut lines, &block, start);
+        }
+        let next = out.join("\n");
+        (next != text).then_some((next, lines))
+    }
+
+    fn apply_line_map(&mut self, lines: &[usize]) {
+        for task in &mut self.tasks {
+            if let Some(&line) = lines.get(task.line) {
+                task.line = line;
+            }
+        }
+        self.tasks.sort_by_key(|task| task.line);
+    }
+
+    /// In the manual order, puts `id` after the last of `parent`'s children (or right after
+    /// the parent when it has none). Priority order ignores the sequence.
+    fn place_after_children(&mut self, id: TaskId, parent: TaskId, hierarchy: &Hierarchy) {
+        if self.mode != SortMode::Manual {
+            return;
+        }
+        let Some(order) = self.manual_order.as_mut() else {
+            return;
+        };
+        order.retain(|known| *known != id);
+        let last = hierarchy
+            .children(Some(parent))
+            .into_iter()
+            .filter(|node| node.id != id)
+            .filter_map(|node| order.iter().position(|known| *known == node.id))
+            .max();
+        let at = match last {
+            Some(at) => at + 1,
+            None => order
+                .iter()
+                .position(|known| *known == parent)
+                .map_or(order.len(), |at| at + 1),
+        }
+        .min(order.len());
+        order.insert(at, id);
+    }
+
+    /// In the manual order, puts `id` directly before or after `sibling`.
+    fn place_beside(&mut self, id: TaskId, sibling: TaskId, after: bool) {
+        let Some(order) = self.manual_order.as_mut() else {
+            return;
+        };
+        order.retain(|known| *known != id);
+        let at = order
+            .iter()
+            .position(|known| *known == sibling)
+            .map_or(order.len(), |at| if after { at + 1 } else { at })
+            .min(order.len());
+        order.insert(at, id);
+    }
+
     fn repair_manual_order(&mut self) {
         if self.mode == SortMode::Manual && self.manual_order.is_none() {
             self.manual_order = Some(Vec::new());
@@ -846,6 +1028,30 @@ fn leading_columns(line: &str) -> usize {
         .take_while(|c| c.is_whitespace())
         .map(|c| if c == '\t' { 2 } else { 1 })
         .sum()
+}
+
+/// The last source line of a task and its subtasks.
+fn subtree_end_line(hierarchy: &Hierarchy, id: TaskId) -> usize {
+    hierarchy
+        .descendants(id)
+        .into_iter()
+        .filter_map(|child| hierarchy.node(child).map(|node| node.line))
+        .max()
+        .unwrap_or_else(|| hierarchy.node(id).map_or(0, |node| node.line))
+}
+
+/// One line of a moved block at a new indentation `delta` columns to the right of where it
+/// stood (`delta` may be negative). A line holding only whitespace stays empty.
+fn reindent(line: &str, delta: isize) -> String {
+    let content = line.trim_start_matches([' ', '\t']);
+    if content.is_empty() {
+        return String::new();
+    }
+    if delta == 0 {
+        return line.to_string();
+    }
+    let columns = (leading_columns(line) as isize + delta).max(0) as usize;
+    format!("{}{}", " ".repeat(columns), content)
 }
 
 fn details_of(task: &Task) -> TaskDetails {
@@ -986,6 +1192,105 @@ mod tests {
         assert!(!tasks.move_task(text, b, a1, false));
         assert!(!tasks.move_task(text, a1, b, true));
         assert!(!tasks.move_task(text, a, a1, false));
+    }
+
+    #[test]
+    fn dropping_a_sibling_on_another_makes_it_its_last_subtask() {
+        let text = "[ ] A\n[ ] B\n  [ ] B1\n[ ] C";
+        let mut tasks = NoteTasks::default();
+        tasks.sync(text);
+        let [a, b, b1, c] = tasks.open_ids(text).try_into().unwrap();
+        assert!(tasks.set_priority(c, Priority::High));
+        let next = tasks.move_task_into(text, b, a).unwrap();
+        assert_eq!(next, "[ ] A\n  [ ] B\n    [ ] B1\n[ ] C");
+        let hierarchy = tasks.hierarchy(&next);
+        assert_eq!(hierarchy.node(b).unwrap().parent, Some(a));
+        assert_eq!(hierarchy.node(b).unwrap().depth, 1);
+        assert_eq!(hierarchy.node(b1).unwrap().parent, Some(b));
+        assert_eq!(hierarchy.node(b1).unwrap().depth, 2);
+        assert_eq!(hierarchy.node(c).unwrap().depth, 0);
+        assert_eq!(tasks.priority(c), Priority::High);
+        assert_eq!(tasks.details(b).unwrap().line, 1);
+        // Dropping it there again changes nothing, and a task is no target for itself or its
+        // own subtasks.
+        assert_eq!(tasks.move_task_into(&next, b, a), None);
+        assert_eq!(tasks.move_task_into(&next, a, b), None);
+        assert_eq!(tasks.move_task_into(&next, a, a), None);
+    }
+
+    #[test]
+    fn dropping_a_subtask_between_top_level_rows_moves_it_back_out() {
+        let text = "[ ] A\n  [ ] A1\n  [ ] A2\n[ ] B";
+        let mut tasks = NoteTasks::default();
+        tasks.sync(text);
+        let [a, a1, a2, b] = tasks.open_ids(text).try_into().unwrap();
+        let next = tasks.move_task_beside(text, a2, b, true).unwrap();
+        assert_eq!(next, "[ ] A\n  [ ] A1\n[ ] B\n[ ] A2");
+        let hierarchy = tasks.hierarchy(&next);
+        assert_eq!(hierarchy.node(a2).unwrap().parent, None);
+        assert_eq!(hierarchy.node(a2).unwrap().depth, 0);
+        assert_eq!(hierarchy.node(a1).unwrap().parent, Some(a));
+        assert_eq!(tasks.mode, SortMode::Manual);
+        assert_eq!(tasks.sorted_children(&hierarchy, None, false), [a, b, a2]);
+
+        // And a row's top edge puts it before that row, out of its old parent as well.
+        let next = tasks.move_task_beside(&next, a1, b, false).unwrap();
+        assert_eq!(next, "[ ] A\n[ ] A1\n[ ] B\n[ ] A2");
+        let hierarchy = tasks.hierarchy(&next);
+        assert_eq!(hierarchy.node(a1).unwrap().parent, None);
+        assert_eq!(
+            tasks.sorted_children(&hierarchy, None, false),
+            [a, a1, b, a2]
+        );
+    }
+
+    #[test]
+    fn a_move_keeps_the_identity_of_duplicate_titles() {
+        let text = "[ ] 买菜\n  [ ] 付款\n[ ] 工作\n  [ ] 付款";
+        let mut tasks = NoteTasks::default();
+        tasks.sync(text);
+        let [buy, pay1, work, pay2] = tasks.open_ids(text).try_into().unwrap();
+        assert!(tasks.set_note(pay1, "一"));
+        assert!(tasks.set_note(pay2, "二"));
+        let next = tasks.move_task_into(text, pay1, work).unwrap();
+        assert_eq!(next, "[ ] 买菜\n[ ] 工作\n  [ ] 付款\n  [ ] 付款");
+        assert_eq!(tasks.details(pay1).unwrap().line, 3);
+        assert_eq!(tasks.details(pay1).unwrap().note, "一");
+        assert_eq!(tasks.details(pay2).unwrap().line, 2);
+        assert_eq!(tasks.details(pay2).unwrap().note, "二");
+        let hierarchy = tasks.hierarchy(&next);
+        assert_eq!(hierarchy.node(pay1).unwrap().parent, Some(work));
+        assert_eq!(hierarchy.node(pay2).unwrap().parent, Some(work));
+        assert_eq!(hierarchy.node(buy).unwrap().depth, 0);
+    }
+
+    #[test]
+    fn a_drop_into_ends_the_new_parents_subtasks_in_manual_order() {
+        let text = "[ ] A\n  [ ] A1\n[ ] B\n[ ] C";
+        let mut tasks = NoteTasks::default();
+        tasks.sync(text);
+        let [a, a1, b, c] = tasks.open_ids(text).try_into().unwrap();
+        assert!(tasks.set_mode(text, SortMode::Manual));
+        let next = tasks.move_task_into(text, c, a).unwrap();
+        assert_eq!(next, "[ ] A\n  [ ] A1\n  [ ] C\n[ ] B");
+        let hierarchy = tasks.hierarchy(&next);
+        assert_eq!(tasks.sorted_children(&hierarchy, Some(a), false), [a1, c]);
+        assert_eq!(tasks.sorted_children(&hierarchy, None, false), [a, b]);
+        assert_eq!(tasks.mode, SortMode::Manual);
+    }
+
+    #[test]
+    fn a_done_task_is_no_drop_target_and_a_cycle_is_refused() {
+        let text = "[ ] A\n  [ ] A1\n[x] B";
+        let mut tasks = NoteTasks::default();
+        tasks.sync(text);
+        let [a, a1] = tasks.open_ids(text).try_into().unwrap();
+        let done = tasks.hierarchy(text).nodes()[2].id;
+        assert_eq!(tasks.move_task_into(text, a, done), None);
+        assert_eq!(tasks.move_task_beside(text, a, done, true), None);
+        assert_eq!(tasks.move_task_into(text, a, a1), None);
+        assert_eq!(tasks.move_task_beside(text, a, a1, true), None);
+        assert_eq!(tasks.move_task_into(text, done, a), None);
     }
 
     #[test]
