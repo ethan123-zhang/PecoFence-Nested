@@ -1,221 +1,103 @@
-https://github.com/user-attachments/assets/c827f059-cfd7-4f6a-bed3-8b00411a7220
+# PecoFence-Nested
 
-## PecoFence-Nested
+Windows 桌面栅栏 [PecoFence](https://github.com/DayuanJiang/PecoFence) 的定制分支：便签里的待办支持**无限层级的大项目/小项目**，可以逐级勾选、逐级完成。
 
-PecoFence fork: hierarchical projects in note fences (nested big/small projects, cascading checkboxes, completed groups). Edit mode removed.
+> 本仓库是个人定制分支，不是上游官方版本，不提供安装包、自动更新、Microsoft Store 或 winget 渠道。
 
-基于 [DayuanJiang/PecoFence](https://github.com/DayuanJiang/PecoFence)，保留原 LICENSE；本仓库在上游基础上做了以下改动：
+![嵌套待办：大项目下挂小项目](docs/assets/pecofence-nested-tree.png)
 
-- 便签待办改为按正文缩进建树（每 2 空格一级，无限层）：大项目套小项目，逐级勾选。
-- 勾父项联动全部后代；最后一条子项完成时父项自动完成，整组进「已完成」并递归显示勾选的大/小项目。
-- 未完成父项下的已完成子项沉底，每级「已完成 (N)」开关默认隐藏、状态持久化。
-- 每级按优先级排序；同级手动排序；排序按钮单击切换，切到手动时按当前屏幕顺序接上。
-- 行尾「＋」新建子任务、顶部「新建项目」；移除日期分区（日期/提醒仍在任务详情）。
-- 彻底移除便签全文编辑模式：点空白不再切旧版平铺页，改名走任务详情；纯文字便签需用 `pecofence-cli note set` 改正文。
-- 修复勾选撤销回滚丢数据、非 2 空格缩进插入、优先级菜单误报、窄便签复选框误命中。
+## 这个分支改了什么
 
-构建环境、验收证据与回滚记录见 [`PROGRESS.md`](PROGRESS.md) 与 [`docs/handoffs/2026-11-22-pecofence-nested-todo.md`](docs/handoffs/2026-11-22-pecofence-nested-todo.md)。
+- 便签待办按正文缩进建树（每 2 空格一级，层数不限）：大项目里套小项目，小项目里还可以再套。
+- 勾选会级联：勾父项连带全部后代；最后一条子项勾完时父项自动勾上，整组离开未完成区；取消任意后代，父链自动取消。
+- 顶部「新建项目」建顶层项目，每行末尾的「＋」建子任务。
+- 每级按优先级（高 / 普通 / 低）排序；同级可以改成手动顺序，拖拽或任务菜单的上移/下移只在同一个父项目内生效。
+- 排序按钮点击直接切换「排序：优先级 ↔ 排序：手动」，切到手动时按当时屏幕上的顺序接上。
+- 未完成父项里已完成的子项沉到本级最后，点「已完成 (N)」显示或隐藏，状态会保存。
+- 全部完成的大项目整组进底部「已完成」，展开后是勾选的大项目套着勾选的小项目。
 
----
+![已完成分组：勾选的大项目里是勾选的小项目](docs/assets/pecofence-nested-completed.png)
 
-<p align="center">
-  <strong>A free, open-source Stardock Fences alternative for Windows 11.</strong><br>
-  Keep files in glass panels, switch projects with tabs, and ask your AI agent to configure the layout, appearance and sorting rules through the built-in CLI.
-</p>
+## 使用
 
-<p align="center">
-  <a href="https://pecofence.jiang.jp/"><strong>Website</strong></a>
-  &nbsp;·&nbsp; <a href="#get-pecofence"><strong>Get PecoFence →</strong></a>
-  &nbsp;·&nbsp; <a href="#your-desktop-configured-by-your-ai"><strong>AI + CLI</strong></a>
-  &nbsp;·&nbsp; <a href="#see-it-in-action">See it in action</a>
-  &nbsp;·&nbsp; <a href="docs/README.md">Documentation</a>
-</p>
-
-<p align="center">
-  <strong>English</strong>
-  &nbsp;·&nbsp; <a href="docs/readme/README.zh-CN.md">简体中文</a>
-  &nbsp;·&nbsp; <a href="docs/readme/README.zh-TW.md">繁體中文</a>
-  &nbsp;·&nbsp; <a href="docs/readme/README.ja.md">日本語</a>
-  &nbsp;·&nbsp; <a href="docs/readme/README.ko.md">한국어</a>
-  &nbsp;·&nbsp; <a href="docs/readme/README.de.md">Deutsch</a>
-  &nbsp;·&nbsp; <a href="docs/readme/README.fr.md">Français</a>
-  &nbsp;·&nbsp; <a href="docs/readme/README.es.md">Español</a>
-  &nbsp;·&nbsp; <a href="docs/readme/README.pt-BR.md">Português (Brasil)</a>
-  &nbsp;·&nbsp; <a href="docs/readme/README.ru.md">Русский</a>
-  &nbsp;·&nbsp; <a href="docs/readme/README.it.md">Italiano</a>
-</p>
-
----
-
-<a id="ask-your-ai-to-organize-it"></a>
-
-## Your desktop. Configured by your AI
-
-**Built-in CLI. Ready for your AI agent.**
-
-Tell your AI agent how you want your desktop to work. The bundled `pecofence-cli` lets Claude Code, Codex and Cursor read your current setup and apply changes directly in PecoFence.
-
-- **Configure it in your own words.** Change themes, transparency, icon sizes and global settings, or adjust every fence at once.
-- **Organize once. Keep it organized.** Create project fences, arrange icons and add rules that sort new files automatically.
-- **Save a setup you like.** Use snapshots for fence layouts and configuration export/import for settings, rules and layouts.
-
-**Try it with your AI agent**
-
-Open PecoFence, then paste this request into your AI coding agent:
-
-> Use pecofence-cli to configure my desktop. First read pecofence-cli skill and pecofence-cli describe, then inspect my current settings and fences. Back up my configuration before changes. Switch to dark mode and make all fences more transparent.
-
-The CLI is included. The Microsoft Store edition adds `pecofence-cli` to PATH. With the portable ZIP, give your agent the path to `pecofence-cli.exe`.
-
-<details>
-<summary><strong>Example conversation with a coding agent</strong></summary>
-
-> Put my desktop PDFs in a Docs fence, keep new PDFs there, switch to dark mode and make the fences more transparent.
+1. 便签正文仍然是 `[ ]` / `[x]` 行，缩进 2 个空格就是上一行的子项目；旧便签不需要迁移，没有缩进就都是顶层。
+2. 点复选框完成，点行尾「＋」新建子任务，点顶部「新建项目」新建顶层项目。
+3. 点任务文字打开任务详情，在详情里改标题、日期、提醒、优先级、颜色、标签、备注和附件。
+4. 改名只能走任务详情，因为本分支已移除便签全文编辑模式：点便签空白处不再进入编辑页。
+5. 纯文字便签在界面里是只读的；需要改正文时用 CLI：
 
 ```powershell
-pecofence-cli config export "$env:USERPROFILE\pecofence-before-ai.json"
-pecofence-cli snapshot save before-cleanup
-pecofence-cli fence create --title Docs
-pecofence-cli rule add --name PDFs --ext pdf --to Docs --index 0
-pecofence-cli rule apply
-pecofence-cli settings set theme dark
-pecofence-cli fence set --all opacity clear
+pecofence-cli note set <便签> "<新的正文>"
 ```
 
-</details>
+## 构建
 
-Built for agents and scripts: `describe` exposes the command catalog and JSON Schemas; `skill` prints the agent guide. JSON results report what changed, and structured application errors help the agent choose its next step.
+环境：Windows 10 1809+ 或 Windows 11 x64；Rust stable（MSVC 工具链）；Visual Studio Build Tools 的 Desktop development with C++；运行设置页需要 Microsoft Edge WebView2 Runtime。
 
-[Get started with the CLI →](docs/CLI.md#start-with-your-ai-agent)
+```powershell
+git clone https://github.com/ethan123-zhang/PecoFence-Nested.git
+cd PecoFence-Nested
+cargo build --release --locked --workspace --bins
+Copy-Item third_party/webview2/WebView2Loader.x64.dll target/release/WebView2Loader.dll
+```
 
-## Give everything a place
+产物都在 `target\release`：
 
-<p align="center">
-  <img src="docs/assets/hero-en.png" alt="PecoFence: project folders, a PDF and original design studies in Liquid Glass fences." width="1280">
-</p>
+- `pecofence.exe`
+- `pecofence-cli.exe`
+- `pecofence-watchdog.exe`
+- `WebView2Loader.dll`（必须和 exe 放在同一目录）
 
-## See it in action
+四个文件放到同一个文件夹，运行 `pecofence.exe` 即可。更多构建与测试说明见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
 
-### Find it as you type.
+## 安装 / 升级 / 回滚
 
-Press **Ctrl + Alt + Space** and type. Matching files and folders in your
-fences show up at once, and **Enter** opens one. Chinese names can be found by pinyin too.
-Everything is a free file search tool: turn on Everything search in Settings, and the whole
-computer is searched as well. The clip uses Press Ctrl twice, which you can choose as the
-shortcut in Settings.
+- 升级：托盘退出旧版，把新构建的 `pecofence.exe`、`pecofence-cli.exe`、`pecofence-watchdog.exe` 覆盖到安装目录，重新启动。
+- 配置默认在 `%APPDATA%\PecoFence\config.json`；用 `--portable` 启动时改存到 exe 同目录的 `config` 文件夹。
+- 回滚：换回旧版 exe 即可。旧版本会忽略新增的可选配置字段，便签正文不受影响。
 
-![Pressing Ctrl twice opens Peek with its search box; typing "meet" lists Meeting notes.docx from a fence, then two files Everything found on the computer; the down arrow picks one and Enter opens it.](docs/assets/search.gif)
+## 与上游的差别
 
-### The right folder in Open and Save dialogs.
-
-In an Open or Save dialog, switch to File Explorer and back, and the dialog jumps to the folder
-open there. **Ctrl+G** jumps there too, and a click on a folder fence goes to that fence's folder.
-It is off by default, and PecoFence offers it the first time it can help. Even with it off,
-**Enter** on a Peek search result works with the dialog: an Open dialog opens the file, a Save
-dialog goes to its folder.
-
-![An Open dialog in Documents jumps to the Contracts folder open in File Explorer after a click there and back, then to Designs after a click on that folder fence.](docs/assets/dialog-jump.gif)
-
-### One fence. Multiple workspaces.
-
-Keep related fences together as tabs. Switch from Project to Ideas in a click,
-then drag a tab out when you want the extra room.
-
-![Merging two fences into tabs, switching between Project and Ideas, then dragging a tab out into its own fence.](docs/assets/tabs.gif)
-
-### Your desktop, one shortcut away.
-
-Press **Ctrl + Alt + Space** to bring your fences above the current application.
-Grab what you need, then press **Esc** to return.
-
-![Peek brings your fences above an application; a click outside or opening a file returns to it.](docs/assets/peek.gif)
-
-### A fence that fills itself.
-
-A smart fence shows the live result of a saved search. Pick a template such as
-**Downloads of the last 7 days** and click **Create**: new files that match show up by
-themselves, and the files stay where they are.
-
-![New smart fence… in a fence's menu opens a small window; the template Downloads of the last 7 days fills in the conditions; Create puts a fence with six files on the desktop, and a new download appears in it by itself.](docs/assets/smart.gif)
-
-### Notes, a clock and your own scripts.
-
-Add them in **Settings → Tools**: a note whose lines that start with `[ ]` become to-dos, a clock
-with the date, and script fences that show what a script prints, such as the weather.
-
-![In Settings, New note puts a note on the desktop and a click ticks its first to-do; Add puts a clock beside it, then a fence with the weather in Tokyo.](docs/assets/tools.gif)
-
-More in the manual: [a set of fences for each virtual desktop](https://pecofence.jiang.jp/manual/#vdesk) ([GIF](docs/assets/vdesk.gif)),
-[desktop icons that stay where you put them](https://pecofence.jiang.jp/manual/#free-place) ([GIF](docs/assets/free-place.gif)) and
-[Ctrl+Z to take back the last step](https://pecofence.jiang.jp/manual/#undo) ([GIF](docs/assets/undo.gif)).
-
-<sub>Animations from the <a href="https://pecofence.jiang.jp/manual/">user manual</a>. GIFs loop automatically.</sub>
-
-## Small details that add up
-
-| Feature | What you get |
+| 项 | 行为 |
 | :--- | :--- |
-| **AI + CLI** | `pecofence-cli`: **Configure it in your own words.** Change themes, transparency, icon sizes and global settings, or adjust every fence at once. |
-| **Less sorting** | Rules for file types, extensions, names, wildcards, shortcut targets, time and size. New files find their fence automatically. |
-| **Smart fences** | A fence that shows the live result of a search, such as the downloads of the last 7 days or every file over 1 GB. The files stay where they are. Press Ctrl+F in a folder fence or smart fence to filter it as you type. |
-| **A set for each virtual desktop** | Each Windows virtual desktop can have its own fences. Switch desktops, and the fences of that desktop fade in. |
-| **Glass that fits your desktop** | Fluent and Liquid Glass themes, light/dark modes, per-fence colors, opacity and icon tinting. |
-| **Familiar file handling** | File Explorer context menus, drag and drop, copy/paste, multi-select, thumbnails and icon/list/details views. |
-| **Keep folders close** | Put a live folder on your desktop. Browse subfolders and see changes as they happen. The mouse's back button goes up a folder and forward goes back in. |
-| **Space when you need it** | Roll a fence up to its title. Hover to expand. Lock a layout you like. Double-click the desktop to hide your fences. Double-click again to bring them back. |
-| **Small tools in fences** | Notes with to-dos, a clock with the date, and script fences that show what your own script prints, such as the weather; their rows can open a link or tick a to-do when you click them. You can add them right away in Settings → Tools or from the tray menu. |
-| **A way back** | Layout snapshots, daily backups, configuration import/export and swapping fences between displays. |
-| **Find a setting** | Type in the box at the top of Settings (Ctrl+F) to find any setting by its words, by pinyin in a Chinese interface, or by a common other name such as startup, hotkey or dark mode. |
-| **A small footprint** | A native Rust application that uses only about 2 to 5 MB of memory at rest in Task Manager. The WebView2 settings panel loads on demand. |
+| 便签待办 | 从单层列表改为按缩进建树，支持无限层级、级联勾选、父项自动完成 |
+| 已完成 | 子项沉底并可折叠，顶层完成整组进底部「已完成」并递归显示 |
+| 日期分区 | 显示上去掉了「今天 / 本周 / 以后 / 没有日期」，日期与提醒仍保留在任务详情 |
+| 排序 | 每级按优先级排序；手动顺序只在同一父项目内；切手动时按当前可见顺序建立基线 |
+| 便签编辑 | 移除全文编辑模式，点空白无反应；改名走任务详情 |
+| 修复 | 勾选撤销回滚丢数据、非 2 空格缩进插入、优先级菜单误报、窄便签复选框误命中 |
 
-Automatic sorting rules keep files in their original locations. File moves you
-initiate work like they do in File Explorer.
+其余上游功能（文件栅栏、整理规则、智能栅栏、CLI、设置、主题、快照等）保留。
 
-[Explore the complete feature list →](docs/FEATURES.md)
+## 已知限制
 
-## Get PecoFence
+- 拖拽的完整交互只在单元测试里验证过，没有在受控环境里做 UI 自动化；建议第一次使用时在桌面上拖一次确认。
+- 键盘 ↑↓ 换位没有做，目前用任务右键菜单的上移/下移。
+- 底部全局「已完成 (N)」的展开状态不跨重启；每个项目里的「已完成 (N)」开关和折叠状态会保存。
+- 没有发布包和自动更新，需要自行构建。
+- 回到上游版本时，缩进的任务行会退化成普通待办并丢失层级，但正文本身不会丢。
+- 纯文字便签在界面里不能改正文，只能通过 `pecofence-cli note set`。
 
-<a href="https://apps.microsoft.com/detail/9MV6WG3XNWSX?mode=direct"><img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Get it from Microsoft Store" width="200"></a>
+## 数据与兼容
 
-The Microsoft Store edition is signed by Microsoft, updates automatically and never shows a SmartScreen prompt. The same app also comes as:
+- 便签正文仍是唯一真源；层级由缩进决定，任务标题、勾选状态都写在正文里。
+- 配置里新增可选的 `noteTasks` 字段（排序模式、手动顺序、折叠、已完成开关），旧配置可以直接读；删掉这个字段只影响排序/折叠状态，不影响正文。
+- 旧的单层待办不需要迁移，打开就是顶层任务。
 
-- **Portable ZIP**: download `pecofence-v<version>-x64-portable.zip` from this repository's **Releases** page, extract the **whole ZIP** into a folder and run `pecofence.exe`.
-- **Installer**: `pecofence-v<version>-x64-setup.exe` on the same page installs PecoFence for your Windows user, with a Start menu entry and an uninstaller.
-- **winget**: `winget install DayuanJiang.PecoFence` installs the portable build and skips the SmartScreen prompt.
+## 开发
 
-<details>
-<summary><strong>Requirements, configuration and a few useful notes</strong></summary>
+```powershell
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+```
 
-- Windows 10 1809 or later (the Microsoft Store edition: 2004 or later), or Windows 11 22H2 or later. Settings needs the Microsoft Edge WebView2 Runtime. Windows 11 includes it; on Windows 10 install it from Microsoft if Settings does not open.
-- The first launch creates four fences in your selected language: Programs, Folders, Files and documents, and Desktop. Windows desktop icons are restored when you exit.
-- Configuration lives in `%APPDATA%\PecoFence\config.json`. Launch with `--portable` to keep it in a `config` folder beside the executable.
-- The ZIP and the installer are unsigned. If Windows SmartScreen appears on first launch, choose **More info → Run anyway**.
+本分支当前状态：`cargo test --workspace` 为 869 passed / 0 failed / 2 ignored；构建、验收和回滚记录见 [PROGRESS.md](PROGRESS.md) 与 [docs/handoffs/2026-11-22-pecofence-nested-todo.md](docs/handoffs/2026-11-22-pecofence-nested-todo.md)。
 
-[Portable edition guide](docs/PORTABLE.md) · [Language guide](docs/LOCALIZATION.md) · [Windows installer guide](docs/INSTALLER.md)
+## 致谢与许可
 
-</details>
+- 基于 [DayuanJiang/PecoFence](https://github.com/DayuanJiang/PecoFence)（Apache License 2.0），本仓库保留上游的 `LICENSE` 与 `NOTICE`。
+- 上游文档：[README](https://github.com/DayuanJiang/PecoFence#readme)、[开发指南](docs/DEVELOPMENT.md)、[CLI](docs/CLI.md)、[功能总表](docs/FEATURES.md)。
+- 本分支的改动与问题记录见 [PROGRESS.md](PROGRESS.md)。
 
-## Build it. Make it yours.
-
-PecoFence is Apache 2.0 licensed, and contributions are welcome, from a sharper translation
-to a better desktop interaction.
-
-[Contribute](CONTRIBUTING.md) · [Improve a translation](docs/LOCALIZATION.md) · [Development guide](docs/DEVELOPMENT.md)
-
-## Code signing policy
-
-Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
-
-- Committers and reviewers: [Dayuan Jiang](https://github.com/DayuanJiang)
-- Approvers: [Dayuan Jiang](https://github.com/DayuanJiang)
-
-Only the files that GitHub Actions builds from a version tag of this repository are signed, and every signing request is approved by hand.
-
-**Privacy:** PecoFence checks GitHub for updates and sends [usage statistics](docs/USAGE_STATS.md) to the PecoFence service. Both can be switched off in **Settings › About**. The update check contacts the GitHub API and, only when GitHub does not answer, the PecoFence website (pecofence.jiang.jp). It sends nothing but the request itself, which names the PecoFence version. A message you send from **Feedback** goes to the PecoFence feedback service. The Settings window runs on Microsoft Edge WebView2, which follows the [Microsoft Privacy Statement](https://privacy.microsoft.com/privacystatement).
-
----
-
-**Made for a desktop you enjoy coming back to.**  
-[Apache License 2.0](LICENSE) · [Third-party notices](third_party/README.md)
-
-Thanks to the [LINUX DO](https://linux.do) community.
+Apache License 2.0，见 [LICENSE](LICENSE)。
