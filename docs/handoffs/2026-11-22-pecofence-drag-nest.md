@@ -53,3 +53,9 @@
   cmd /c "call `"$vc`" && cd /d D:\Documents\Codex\2026-11-18\pecofence\work\PecoFence && cargo test --workspace"
   ```
 - 隔离实例残留：`work\trial-dragnest\`（配置、日志、真实鼠标脚本），可随时删。
+
+## 6. 提交与推送
+
+- 仓库：`https://github.com/ethan123-zhang/PecoFence-Nested`，`main`。
+- 提交 `f455f0e`「待办可拖进另一条成为子任务，同级换位保留」，22 文件、+729/−35；已推送，`git rev-parse HEAD` 与 `github/main` 一致。
+- 父提交为 `9093aff`（README 重写，另一会话在本次改动期间提交），更早为 `31c74b5`、`92cb3bc`、`c10ba04`。
