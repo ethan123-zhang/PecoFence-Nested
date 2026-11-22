@@ -1,0 +1,201 @@
+https://github.com/user-attachments/assets/c827f059-cfd7-4f6a-bed3-8b00411a7220
+
+<p align="center">
+  <strong>Uma alternativa gratuita e de código aberto ao Stardock Fences para Windows 11.</strong><br>
+  Agrupe arquivos em painéis de vidro, alterne entre projetos com abas e deixe seu agente de IA configurar o layout, a aparência e as regras de organização pela CLI integrada.
+</p>
+
+<p align="center">
+  <a href="https://pecofence.jiang.jp/pt-BR/"><strong>Site oficial</strong></a>
+  &nbsp;·&nbsp; <a href="#baixe-o-pecofence"><strong>Baixe o PecoFence →</strong></a>
+  &nbsp;·&nbsp; <a href="#sua-área-de-trabalho-configurada-pela-sua-ia"><strong>IA + CLI</strong></a>
+  &nbsp;·&nbsp; <a href="#veja-em-ação">Veja em ação</a>
+  &nbsp;·&nbsp; <a href="../README.md">Documentação</a>
+</p>
+
+<p align="center">
+  <a href="../../README.md">English</a>
+  &nbsp;·&nbsp; <a href="README.zh-CN.md">简体中文</a>
+  &nbsp;·&nbsp; <a href="README.zh-TW.md">繁體中文</a>
+  &nbsp;·&nbsp; <a href="README.ja.md">日本語</a>
+  &nbsp;·&nbsp; <a href="README.ko.md">한국어</a>
+  &nbsp;·&nbsp; <a href="README.de.md">Deutsch</a>
+  &nbsp;·&nbsp; <a href="README.fr.md">Français</a>
+  &nbsp;·&nbsp; <a href="README.es.md">Español</a>
+  &nbsp;·&nbsp; <strong>Português (Brasil)</strong>
+  &nbsp;·&nbsp; <a href="README.ru.md">Русский</a>
+  &nbsp;·&nbsp; <a href="README.it.md">Italiano</a>
+</p>
+
+---
+
+<a id="peça-à-sua-ia-para-organizar"></a>
+
+## Sua área de trabalho, configurada pela sua IA
+
+**CLI incluída. Pronta para seu agente de IA.**
+
+Diga ao seu agente de IA como você quer usar a área de trabalho. Com a `pecofence-cli` incluída no aplicativo, Claude Code, Codex e Cursor podem ler sua configuração atual e aplicar mudanças diretamente no PecoFence.
+
+- **Configure com suas próprias palavras.** Altere temas, transparência, tamanho dos ícones e configurações globais, ou ajuste todos os grupos de uma vez.
+- **Organize uma vez e mantenha a ordem.** Crie grupos por projeto, distribua os ícones e adicione regras para organizar novos arquivos automaticamente.
+- **Salve a configuração de que você gosta.** Use instantâneos para os layouts dos grupos e a exportação e importação de configuração para ajustes, regras e layouts.
+
+**Experimente com seu agente de IA**
+
+Abra o PecoFence e cole este pedido no seu agente de programação com IA:
+
+> Configure minha área de trabalho com pecofence-cli. Primeiro leia pecofence-cli skill e pecofence-cli describe e confira minhas configurações e grupos atuais. Faça um backup da configuração antes de alterá-la. Ative o modo escuro e deixe todos os grupos mais transparentes.
+
+A CLI já está incluída. A edição da Microsoft Store adiciona `pecofence-cli` ao PATH. Com o ZIP portátil, informe ao agente o caminho completo de `pecofence-cli.exe`.
+
+<details>
+<summary><strong>Exemplo de conversa com um agente de programação</strong></summary>
+
+> Coloque os PDFs da minha área de trabalho em um grupo Docs e organize os novos PDFs nele também. Ative o modo escuro e deixe os grupos mais transparentes.
+
+```powershell
+pecofence-cli config export "$env:USERPROFILE\pecofence-before-ai.json"
+pecofence-cli snapshot save before-cleanup
+pecofence-cli fence create --title Docs
+pecofence-cli rule add --name PDFs --ext pdf --to Docs --index 0
+pecofence-cli rule apply
+pecofence-cli settings set theme dark
+pecofence-cli fence set --all opacity clear
+```
+
+</details>
+
+Para agentes e scripts: `describe` fornece o catálogo de comandos e os esquemas JSON; `skill`, o guia do agente. Os resultados JSON mostram as alterações, e os erros estruturados do aplicativo ajudam o agente a escolher o próximo passo.
+
+[Primeiros passos com a CLI →](../CLI.md#start-with-your-ai-agent)
+
+## Dê um lugar a cada coisa
+
+<p align="center">
+  <img src="../assets/hero-pt-BR.png" alt="PecoFence: pastas de projetos, um PDF real e estudos gráficos originais em grupos com Liquid Glass nativo." width="1280">
+</p>
+
+## Veja em ação
+
+### Encontre enquanto digita.
+
+Pressione **Ctrl + Alt + Espaço** e digite. Os arquivos e pastas dos seus grupos que
+correspondem aparecem na hora, e **Enter** abre um. Nomes em chinês também podem ser encontrados por pinyin.
+O Everything é uma ferramenta gratuita de pesquisa de arquivos: ative a pesquisa com o Everything nas
+Configurações, e o computador inteiro também entra na pesquisa. A animação usa “Ctrl duas vezes”, que você
+pode escolher como atalho nas Configurações.
+
+![Tocar duas vezes em Ctrl espia os grupos com a caixa de pesquisa aberta; ao digitar “meet”, aparecem Meeting notes.docx de um grupo e dois arquivos que o Everything achou no computador; a seta escolhe um e Enter o abre.](../assets/search.gif)
+
+### A pasta certa nas caixas Abrir e Salvar.
+
+Em uma caixa Abrir ou Salvar, vá ao Explorador de Arquivos e volte: a caixa vai para a pasta aberta lá.
+**Ctrl+G** também vai até lá, e um clique em um grupo de pasta leva à pasta desse grupo. O recurso vem desativado
+por padrão, e o PecoFence oferece ativá-lo na primeira vez que puder ajudar. Mesmo desativado, **Enter** em um
+resultado da pesquisa ao espiar funciona com a caixa: uma caixa Abrir abre o arquivo, e uma caixa Salvar vai para
+a pasta dele.
+
+![Uma caixa Abrir em Documents vai para a pasta Contracts depois de ir ao Explorador de Arquivos e voltar, e para Designs depois de um clique nesse grupo de pasta.](../assets/dialog-jump.gif)
+
+### Uma janela. Vários espaços de trabalho.
+
+Mantenha grupos relacionados juntos como abas. Passe de Project para Ideas com um clique
+e arraste uma aba para fora quando precisar de mais espaço.
+
+![Dois grupos viram abas, alternando entre Project e Ideas, e depois uma aba é separada em um grupo independente.](../assets/tabs.gif)
+
+### Sua área de trabalho a um atalho de distância.
+
+Pressione **Ctrl + Alt + Espaço** para espiar seus grupos por cima do aplicativo atual.
+Pegue o que precisa e pressione **Esc** para voltar.
+
+![O recurso Espiar traz os grupos por cima de um aplicativo; um clique fora ou abrir um arquivo volta ao aplicativo.](../assets/peek.gif)
+
+### Um grupo que se enche sozinho.
+
+Um grupo inteligente mostra sempre atualizado o resultado de uma pesquisa salva. Escolha um modelo como
+**Downloads dos últimos 7 dias** e clique em **Criar**: os arquivos novos que correspondem aparecem
+sozinhos, e os arquivos ficam onde estão.
+
+![New smart fence… no menu de um grupo abre uma janela pequena; o modelo Downloads of the last 7 days preenche as condições; Create coloca na área de trabalho um grupo com seis arquivos, e um download novo aparece nele sozinho.](../assets/smart.gif)
+
+### Notas, um relógio e seus próprios scripts.
+
+Adicione em **Configurações → Ferramentas**: uma nota em que as linhas que começam com `[ ]` viram tarefas,
+um relógio com a data e grupos de script que mostram o que um script imprime, como o clima.
+
+![Nas Configurações, New note coloca uma nota na área de trabalho e um clique marca a primeira tarefa dela; Add coloca um relógio ao lado e depois um grupo com o clima em Tóquio.](../assets/tools.gif)
+
+Mais no manual: [grupos separados para cada área de trabalho virtual](https://pecofence.jiang.jp/pt-BR/manual/#vdesk) ([GIF](../assets/vdesk.gif)),
+[ícones da área de trabalho que ficam onde você os coloca](https://pecofence.jiang.jp/pt-BR/manual/#free-place) ([GIF](../assets/free-place.gif)) e
+[Ctrl+Z para desfazer o último passo](https://pecofence.jiang.jp/pt-BR/manual/#undo) ([GIF](../assets/undo.gif)).
+
+<sub>Animações do <a href="https://pecofence.jiang.jp/pt-BR/manual/">manual</a>. Os GIFs se repetem automaticamente.</sub>
+
+## Pequenos detalhes que fazem diferença no dia a dia
+
+| Experiência | O que você ganha |
+| :--- | :--- |
+| **IA + CLI** | `pecofence-cli`: **Configure com suas próprias palavras.** Altere temas, transparência, tamanho dos ícones e configurações globais, ou ajuste todos os grupos de uma vez. |
+| **Menos arrumação** | Regras por tipo de arquivo, extensão, nome, curinga, destino do atalho, horário e tamanho. Arquivos novos encontram seu grupo sozinhos. |
+| **Grupos inteligentes** | Um grupo que mostra sempre atualizado o resultado de uma pesquisa, como os downloads dos últimos 7 dias ou todos os arquivos com mais de 1 GB. Os arquivos ficam onde estão. Ctrl+F filtra um grupo de pasta ou um grupo inteligente enquanto você digita. |
+| **Grupos para cada área de trabalho virtual** | Cada área de trabalho virtual do Windows pode ter seus próprios grupos. Ao trocar de área de trabalho, os grupos dela aparecem aos poucos. |
+| **Vidro que combina com sua área de trabalho** | Temas Fluent e Liquid Glass, modos claro e escuro, cor por grupo, opacidade e cor dos ícones. |
+| **Arquivos do jeito que você conhece** | Menus de contexto do Explorador de Arquivos, arrastar e soltar, copiar e colar, seleção múltipla, miniaturas e exibição em ícones, lista ou detalhes. |
+| **Pastas sempre à mão** | Coloque na área de trabalho uma pasta de verdade, sempre atualizada. Navegue pelas subpastas e veja as mudanças na hora. O botão Voltar do mouse sobe uma pasta e o Avançar volta para dentro. |
+| **Espaço quando você precisa** | Recolha um grupo até o título. Passe o mouse para expandir. Bloqueie o layout quando estiver do seu jeito. Clique duas vezes na área de trabalho para ocultar os grupos. Clique duas vezes de novo para trazê-los de volta. |
+| **Pequenas ferramentas nos grupos** | Notas com tarefas, um relógio com a data e grupos de script que mostram o que o seu próprio script imprime, como o clima; um clique nas linhas pode abrir um link ou marcar uma tarefa. Você pode adicioná-las logo em Configurações → Ferramentas ou pelo menu da bandeja. |
+| **Um caminho de volta** | Instantâneos de layout, backups diários, importação e exportação da configuração e troca de grupos entre monitores. |
+| **Localizar uma configuração** | Digite na caixa no alto das Configurações (Ctrl+F) para achar qualquer configuração pelas palavras dela ou por outros nomes comuns. |
+| **Leve de verdade** | Um aplicativo nativo em Rust que, ocioso, usa só cerca de 2 a 5 MB de memória (segundo o Gerenciador de Tarefas). O painel de configurações em WebView2 só carrega quando necessário. |
+
+As regras de organização automática mantêm os arquivos onde eles estão. As movimentações
+que você mesmo inicia funcionam como no Explorador de Arquivos.
+
+[Conheça a lista completa de recursos →](../FEATURES.md)
+
+## Baixe o PecoFence
+
+<a href="https://apps.microsoft.com/detail/9MV6WG3XNWSX?mode=direct"><img src="https://get.microsoft.com/images/pt-br%20dark.svg" alt="Obter na Microsoft Store" width="200"></a>
+
+A versão da Microsoft Store é assinada pela Microsoft, atualiza sozinha e nunca mostra o aviso do SmartScreen. O mesmo aplicativo também está disponível como:
+
+- **ZIP portátil**: baixe `pecofence-v<versão>-x64-portable.zip` na página **Releases** deste repositório, extraia o **ZIP inteiro** para uma pasta e execute `pecofence.exe`.
+- **Instalador**: o `pecofence-v<versão>-x64-setup.exe`, na mesma página, instala o PecoFence para o seu usuário do Windows, com atalho no menu Iniciar e desinstalador.
+- **winget**: `winget install DayuanJiang.PecoFence` instala a versão portátil e evita o aviso do SmartScreen.
+
+<details>
+<summary><strong>Requisitos, configuração e algumas observações úteis</strong></summary>
+
+- Windows 10 1809 ou mais recente (versão da Microsoft Store: 2004 ou mais recente), ou Windows 11 22H2 ou mais recente. O Microsoft Edge WebView2 Runtime é necessário para as Configurações. O Windows 11 já o inclui; no Windows 10, instale-o pelo site da Microsoft se as Configurações não abrirem.
+- Na primeira execução são criados os grupos “Programas”, “Pastas”, “Arquivos e documentos” e “Área de trabalho” no idioma escolhido. Os ícones da área de trabalho do Windows voltam a aparecer quando você sai.
+- A configuração fica em `%APPDATA%\PecoFence\config.json`. Inicie com `--portable` para mantê-la em uma pasta `config` ao lado do executável.
+- O ZIP e o instalador não são assinados. Se o Windows SmartScreen aparecer na primeira execução, escolha **Mais informações → Executar assim mesmo**.
+
+[Guia da edição portátil](../PORTABLE.md) · [Guia de idiomas](../LOCALIZATION.md) · [Guia do instalador do Windows](../INSTALLER.md)
+
+</details>
+
+## Compile. Deixe do seu jeito.
+
+O PecoFence usa a licença Apache 2.0, e contribuições são bem-vindas: de uma tradução mais precisa
+a uma interação melhor na área de trabalho.
+
+[Contribua](../../CONTRIBUTING.md) · [Melhore uma tradução](../LOCALIZATION.md) · [Guia de desenvolvimento](../DEVELOPMENT.md)
+
+## Code signing policy
+
+Assinatura de código gratuita fornecida pela [SignPath.io](https://about.signpath.io/), com certificado da [SignPath Foundation](https://signpath.org/).
+
+- Commits e revisões: [Dayuan Jiang](https://github.com/DayuanJiang)
+- Aprovação das assinaturas: [Dayuan Jiang](https://github.com/DayuanJiang)
+
+Só são assinados os arquivos que o GitHub Actions compila a partir de uma tag de versão deste repositório. Cada assinatura é aprovada manualmente.
+
+**Privacidade:** o PecoFence verifica atualizações no GitHub e envia [estatísticas de uso](../USAGE_STATS.md) ao serviço do PecoFence. As duas coisas podem ser desativadas em **Configurações › Sobre**. A verificação de atualizações consulta a API do GitHub e, somente se o GitHub não responder, o site do PecoFence (pecofence.jiang.jp). Nessa verificação, nada é enviado além da própria solicitação, que informa a versão do PecoFence. O que você envia em **Comentários** vai para o serviço de comentários do PecoFence. A janela de configurações roda no Microsoft Edge WebView2, ao qual se aplica a [Declaração de Privacidade da Microsoft](https://privacy.microsoft.com/privacystatement).
+
+---
+
+**Feito para uma área de trabalho à qual você gosta de voltar.**  
+[Licença Apache 2.0](../../LICENSE) · [Avisos de terceiros](../../third_party/README.md)

@@ -1,0 +1,190 @@
+https://github.com/user-attachments/assets/c827f059-cfd7-4f6a-bed3-8b00411a7220
+
+<p align="center">
+  <strong>免費、開源的 Windows 11 桌面整理工具，可以取代 Stardock Fences。</strong><br>
+  用玻璃圍欄收好檔案，用分頁切換專案，也能讓 AI 助理透過內建 CLI，直接調整圍欄配置、外觀與自動整理規則。
+</p>
+
+<p align="center">
+  <a href="https://pecofence.jiang.jp/zh-TW/"><strong>官方網站</strong></a>
+  &nbsp;·&nbsp; <a href="#開始使用"><strong>下載使用 →</strong></a>
+  &nbsp;·&nbsp; <a href="#桌面怎麼設告訴-ai-就好"><strong>AI + CLI</strong></a>
+  &nbsp;·&nbsp; <a href="#看看它怎麼用">看看實際操作</a>
+  &nbsp;·&nbsp; <a href="../README.md">專案文件</a>
+</p>
+
+<p align="center">
+  <a href="../../README.md">English</a>
+  &nbsp;·&nbsp; <a href="README.zh-CN.md">简体中文</a>
+  &nbsp;·&nbsp; <strong>繁體中文</strong>
+  &nbsp;·&nbsp; <a href="README.ja.md">日本語</a>
+  &nbsp;·&nbsp; <a href="README.ko.md">한국어</a>
+  &nbsp;·&nbsp; <a href="README.de.md">Deutsch</a>
+  &nbsp;·&nbsp; <a href="README.fr.md">Français</a>
+  &nbsp;·&nbsp; <a href="README.es.md">Español</a>
+  &nbsp;·&nbsp; <a href="README.pt-BR.md">Português (Brasil)</a>
+  &nbsp;·&nbsp; <a href="README.ru.md">Русский</a>
+  &nbsp;·&nbsp; <a href="README.it.md">Italiano</a>
+</p>
+
+---
+
+<a id="讓-ai-幫你整理"></a>
+
+## 桌面怎麼設，告訴 AI 就好
+
+**內建 CLI，讓 AI 直接設定桌面**
+
+把你想要的桌面告訴 AI 助理。PecoFence 隨附 `pecofence-cli`，Claude Code、Codex、Cursor 可以讀取目前設定，並直接在 PecoFence 中執行修改。
+
+- **說出需求，直接改設定。** 切換主題，調整透明度、圖示大小與全域設定，也能一次改好所有圍欄。
+- **整理一次，之後自動歸位。** 建立專案圍欄、整理圖示，再新增規則，讓新檔案自動進入對應圍欄。
+- **喜歡的設定，儲存下來。** 用快照儲存圍欄配置；匯出設定檔則能保存並還原設定、規則與配置。
+
+**現在就讓你的 AI 助理試試**
+
+啟動 PecoFence，把下面這段話交給你的 AI 程式設計助理：
+
+> 請用 pecofence-cli 幫我設定桌面。先閱讀 pecofence-cli skill 和 pecofence-cli describe，再查看目前的設定與圍欄。修改前先備份設定，然後切換為深色模式，並把所有圍欄調得更透明。
+
+CLI 已隨應用程式附帶。Microsoft Store 版會將 `pecofence-cli` 加入 PATH；使用免安裝版時，告訴助理 `pecofence-cli.exe` 的完整路徑即可。
+
+<details>
+<summary><strong>與 AI 程式設計助理的對話範例</strong></summary>
+
+> 把桌面上的 PDF 放進 Docs 圍欄，之後的 PDF 也自動歸進去，切換成深色模式，再把圍欄調得更透明一些。
+
+```powershell
+pecofence-cli config export "$env:USERPROFILE\pecofence-before-ai.json"
+pecofence-cli snapshot save before-cleanup
+pecofence-cli fence create --title Docs
+pecofence-cli rule add --name PDFs --ext pdf --to Docs --index 0
+pecofence-cli rule apply
+pecofence-cli settings set theme dark
+pecofence-cli fence set --all opacity clear
+```
+
+</details>
+
+為 AI 與指令碼而設計：`describe` 輸出指令目錄與 JSON Schema，`skill` 輸出使用指南。每次執行都以 JSON 回報改了什麼；出錯時回傳結構化錯誤，助理可據此決定下一步。
+
+[查看 CLI 入門指南 →](../CLI.md#start-with-your-ai-agent)
+
+## 給每件事留一個位置
+
+<p align="center">
+  <img src="../assets/hero-zh-TW.png" alt="PecoFence：專案資料夾、PDF 與設計海報，收在 Liquid Glass 圍欄裡。" width="1280">
+</p>
+
+## 看看它怎麼用
+
+### 打字就找到
+
+按 **Ctrl + Alt + 空白鍵**，然後直接打字。圍欄裡名稱對得上的檔案和資料夾馬上列出來，中文名稱打拼音也能搜到，按 **Enter** 開啟。
+Everything 是免費的檔案搜尋工具，在設定裡開啟 Everything 搜尋後，整台電腦的檔案也能搜到。
+動畫裡用的是「按兩下 Ctrl」，可以在設定裡把快速鍵換成它。
+
+![快速按兩下 Ctrl，預覽圍欄和搜尋框一起開啟；輸入 meet，先列出圍欄裡的 Meeting notes.docx，再列出 Everything 在整台電腦上找到的兩個檔案；按 ↓ 選取一個，按 Enter 開啟。](../assets/search.gif)
+
+### 開啟、儲存時直達資料夾
+
+在「開啟」「另存新檔」對話方塊裡切到檔案總管，再切回來，對話方塊就會跳到檔案總管裡正開著的資料夾。按 **Ctrl+G** 也能跳，點一下資料夾圍欄就跳到它顯示的資料夾。這個功能預設關閉，第一次遇到用得上的時候，PecoFence 會問你要不要開啟。
+就算沒開啟，對話方塊開著時用預覽搜到檔案後按 **Enter**，「開啟」對話方塊也會直接開啟它，「另存新檔」對話方塊會轉到它所在的資料夾。
+
+![「開啟」對話方塊停在 Documents；點一下檔案總管再點回來，對話方塊跳到檔案總管裡的 Contracts 資料夾；再點 Designs 資料夾圍欄，對話方塊跳到 Designs。](../assets/dialog-jump.gif)
+
+### 一個圍欄，切換多個專案
+
+把相關的圍欄合併成分頁，點一下就能從 Project 切到 Ideas。
+需要同時看兩組檔案時，把分頁拖出來，就變回兩個獨立的圍欄。
+
+![把兩個圍欄合併成分頁，在 Project 與 Ideas 之間切換，再把分頁拖出來，拆回獨立圍欄。](../assets/tabs.gif)
+
+### 檔案就在目前應用程式前面
+
+按下 **Ctrl + Alt + 空白鍵** 預覽圍欄，所有圍欄會顯示在目前的應用程式上方。
+拿到需要的檔案後，按 **Esc** 回去繼續工作。
+
+![用快速鍵預覽圍欄，讓圍欄顯示在應用程式上方；點一下圍欄外面或開啟檔案，就回到應用程式。](../assets/peek.gif)
+
+### 會自己更新的圍欄
+
+智慧圍欄顯示一個儲存下來的搜尋的最新結果。選一個範本，例如**最近 7 天下載**，再點**建立**：符合條件的新檔案會自己出現，檔案留在原來的位置。
+
+![在圍欄選單裡選 New smart fence…，開啟一個小視窗；點範本 Downloads of the last 7 days，條件就填好了；點 Create，桌面上多出一個圍欄，裡面有六個檔案；新下載的檔案自己出現在裡面。](../assets/smart.gif)
+
+### 便箋、時鐘和你自己的腳本
+
+在**設定 → 小工具**裡新增：便箋裡以 `[ ]` 開頭的行會變成待辦，時鐘顯示時間和日期，腳本圍欄顯示腳本輸出的文字，例如天氣。
+
+![在設定裡點 New note，桌面上多出一張便箋，點一下就替第一項待辦打勾；點 Add，旁邊多出一個時鐘，再多出一個顯示東京天氣的圍欄。](../assets/tools.gif)
+
+使用手冊裡還有：[每個虛擬桌面一套圍欄](https://pecofence.jiang.jp/zh-TW/manual/#vdesk)（[動畫](../assets/vdesk.gif)）、[散放的桌面圖示放哪裡就在哪裡](https://pecofence.jiang.jp/zh-TW/manual/#free-place)（[動畫](../assets/free-place.gif)）和[按 Ctrl+Z 復原上一步](https://pecofence.jiang.jp/zh-TW/manual/#undo)（[動畫](../assets/undo.gif)）。
+
+<sub>動畫取自<a href="https://pecofence.jiang.jp/zh-TW/manual/">使用手冊</a>，會自動重複播放。</sub>
+
+## 好用之處藏在細節裡
+
+| 體驗 | 能做什麼 |
+| :--- | :--- |
+| **AI + CLI** | `pecofence-cli`：**說出需求，直接改設定。** 切換主題，調整透明度、圖示大小與全域設定，也能一次改好所有圍欄。 |
+| **少一點手動整理** | 依類型、副檔名、名稱、萬用字元、捷徑目標、時間和大小設定規則，新檔案會自動找到自己的位置。 |
+| **智慧圍欄** | 圍欄裡顯示一個搜尋的最新結果，例如最近 7 天下載的檔案，或所有大於 1 GB 的檔案。檔案留在原來的位置。在資料夾圍欄或智慧圍欄裡按 Ctrl+F，邊打字邊篩選。 |
+| **每個虛擬桌面一套圍欄** | Windows 的每個虛擬桌面可以有自己的圍欄。切換桌面時，那個桌面的圍欄會淡入顯示。 |
+| **配得上你的桌布** | Fluent 與 Liquid Glass 兩種風格，支援淺色／深色模式；每個圍欄可各自設定色調與不透明度，還能為圖示著色。 |
+| **熟悉的檔案操作** | 檔案總管右鍵選單、拖放、複製貼上、多選、縮圖，以及圖示／清單／詳細資料三種檢視。 |
+| **把資料夾放在手邊** | 把真實的資料夾變成桌面上的視窗；可以進入子資料夾，內容一有變動就自動同步。滑鼠的返回鍵回到上一層，前進鍵回到剛離開的子資料夾。 |
+| **要用時展開，不用時收合** | 把圍欄收合成一條標題列，滑鼠停留就展開；也可以鎖定已經擺好的位置與大小。在桌面空白處按兩下就隱藏全部圍欄，再按兩下就恢復。 |
+| **桌面上的小工具** | 便箋與待辦、時鐘，還有腳本圍欄：顯示你自己的腳本輸出的文字，例如天氣；腳本輸出的行還能點，用來開啟網址或替待辦打勾。在「設定 → 小工具」或系統匣選單裡，直接就能新增它們。 |
+| **喜歡的配置留得住** | 儲存配置快照、每日自動備份、匯入匯出設定、交換兩個顯示器上的圍欄。 |
+| **尋找設定** | 在設定視窗左上角的「尋找設定」框（Ctrl+F）裡打字，就能找到任何一項設定：可以用設定裡的詞，也認得常用的別名。 |
+| **輕巧地待在桌面上** | 以 Rust 撰寫的原生應用程式，閒置時記憶體用量只有約 2 到 5 MB（工作管理員顯示）。WebView2 設定面板需要時才載入。 |
+
+自動整理只改變檔案所屬的圍欄，檔案原本的位置不會變動。
+你自己發起的移動、重新命名和刪除，則和檔案總管一樣直接作用在真實檔案上。
+
+[查看完整功能清單 →](../FEATURES.md)
+
+## 開始使用
+
+<a href="https://apps.microsoft.com/detail/9MV6WG3XNWSX?mode=direct"><img src="https://get.microsoft.com/images/zh-tw%20dark.svg" alt="從 Microsoft Store 取得" width="200"></a>
+
+Microsoft Store 版由微軟簽署、自動更新，不會出現 SmartScreen 提示。同一個程式也可以這樣安裝：
+
+- **免安裝版 ZIP**：到本儲存庫的 **Releases** 頁面下載 `pecofence-v<版本>-x64-portable.zip`，把壓縮檔**完整解壓縮**到一個資料夾，執行 `pecofence.exe`。
+- **安裝程式**：同一頁面上的 `pecofence-v<版本>-x64-setup.exe` 只替目前的使用者安裝，會加入開始功能表項目和解除安裝程式。
+- **winget**：`winget install DayuanJiang.PecoFence` 安裝的是免安裝版，而且不會觸發 SmartScreen 提示。
+
+<details>
+<summary><strong>系統需求、設定檔位置與使用說明</strong></summary>
+
+- 支援 Windows 10 1809 以上版本（Microsoft Store 版需要 2004 以上），以及 Windows 11 22H2 以上版本。設定面板需要 Microsoft Edge WebView2 Runtime，Windows 11 已內建，Windows 10 若無法開啟設定請從微軟官網安裝。
+- 第一次執行時，會依所選語言建立「程式」「資料夾」「檔案與文件」和「桌面」四個圍欄。結束程式時，Windows 桌面圖示會恢復顯示。
+- 設定儲存在 `%APPDATA%\PecoFence\config.json`。以 `--portable` 啟動，可改為儲存在程式旁的 `config` 資料夾。
+- 免安裝版與安裝程式都沒有程式碼簽章。首次執行若出現 Windows SmartScreen 提示，請點選**其他資訊 → 仍要執行**。
+
+[免安裝版說明](../PORTABLE.md) · [多語言說明](../LOCALIZATION.md) · [Windows 安裝版說明](../INSTALLER.md)
+
+</details>
+
+## 歡迎一起讓它更好
+
+改進一句翻譯、修好一次拖曳、讓某個日常操作更順手，都非常歡迎。
+
+[參與貢獻](../../CONTRIBUTING.md) · [改善翻譯](../LOCALIZATION.md) · [開發文件](../DEVELOPMENT.md)
+
+## Code signing policy
+
+程式碼簽章由 [SignPath.io](https://about.signpath.io/) 免費提供，憑證由 [SignPath Foundation](https://signpath.org/) 核發。
+
+- 提交與審閱：[Dayuan Jiang](https://github.com/DayuanJiang)
+- 核准簽章：[Dayuan Jiang](https://github.com/DayuanJiang)
+
+只有 GitHub Actions 從本儲存庫的版本標籤建置出來的檔案才會簽章。每一次簽章都要人工核准。
+
+**隱私：** PecoFence 會到 GitHub 檢查更新，並向 PecoFence 的服務傳送[使用統計](../USAGE_STATS.md)。兩項都可以在**設定 › 關於**裡關閉。檢查更新時，它會連到 GitHub 的 API；只有 GitHub 沒有回應時，才改為連到 PecoFence 的網站（pecofence.jiang.jp）。這時除了請求本身（其中帶有 PecoFence 的版本號），不會傳送任何資訊。在**意見回饋**裡傳送的內容會送到 PecoFence 的意見回饋服務。設定視窗基於 Microsoft Edge WebView2，適用 [Microsoft 隱私權聲明](https://privacy.microsoft.com/privacystatement)。
+
+---
+
+**讓每次回到桌面，都更舒服一點。**  
+[Apache 2.0 授權條款](../../LICENSE) · [第三方授權聲明](../../third_party/README.md)

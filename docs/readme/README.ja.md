@@ -1,0 +1,187 @@
+https://github.com/user-attachments/assets/c827f059-cfd7-4f6a-bed3-8b00411a7220
+
+<p align="center">
+  <strong>Windows 11 向けの無料・オープンソースの Stardock Fences 代替アプリ。</strong><br>
+  ガラスのフェンスにファイルをまとめ、タブでプロジェクトを切り替え。内蔵 CLI を通じて、AI にレイアウトや外観、自動整理ルールの設定も任せられます。
+</p>
+
+<p align="center">
+  <a href="https://pecofence.jiang.jp/ja/"><strong>公式サイト</strong></a>
+  &nbsp;·&nbsp; <a href="#はじめる"><strong>PecoFence をはじめる →</strong></a>
+  &nbsp;·&nbsp; <a href="#理想のデスクトップをai-に伝えよう"><strong>AI + CLI</strong></a>
+  &nbsp;·&nbsp; <a href="#実際の動きを見る">実際の動きを見る</a>
+  &nbsp;·&nbsp; <a href="../README.md">ドキュメント</a>
+</p>
+
+<p align="center">
+  <a href="../../README.md">English</a>
+  &nbsp;·&nbsp; <a href="README.zh-CN.md">简体中文</a>
+  &nbsp;·&nbsp; <a href="README.zh-TW.md">繁體中文</a>
+  &nbsp;·&nbsp; <strong>日本語</strong>
+  &nbsp;·&nbsp; <a href="README.ko.md">한국어</a>
+  &nbsp;·&nbsp; <a href="README.de.md">Deutsch</a>
+  &nbsp;·&nbsp; <a href="README.fr.md">Français</a>
+  &nbsp;·&nbsp; <a href="README.es.md">Español</a>
+  &nbsp;·&nbsp; <a href="README.pt-BR.md">Português (Brasil)</a>
+  &nbsp;·&nbsp; <a href="README.ru.md">Русский</a>
+  &nbsp;·&nbsp; <a href="README.it.md">Italiano</a>
+</p>
+
+---
+
+<a id="ai-に整理を任せる"></a>
+
+## 理想のデスクトップを、AI に伝えよう
+
+**CLI を標準搭載。AI がデスクトップを設定。**
+
+デスクトップをどう使いたいか、AI エージェントに伝えるだけ。付属の `pecofence-cli` を使えば、Claude Code、Codex、Cursor が現在の設定を読み取り、PecoFence に直接変更を適用できます。
+
+- **いつもの言葉で設定。** テーマ、不透明度、アイコンサイズ、全体設定を変更。すべてのフェンスをまとめて調整することもできます。
+- **一度整理したら、あとは自動。** プロジェクト用のフェンスを作り、アイコンを整理。ルールを追加すれば、新しいファイルも自動で分類されます。
+- **気に入った設定を保存。** フェンスの配置はスナップショットで、設定・ルール・レイアウトはまとめてエクスポート／インポートで保存・復元できます。
+
+**お使いの AI エージェントで試す**
+
+PecoFence を起動し、次の依頼を AI コーディングエージェントに貼り付けてください。
+
+> pecofence-cli でデスクトップを設定してください。まず pecofence-cli skill と pecofence-cli describe を読み、現在の設定とフェンスを確認してください。変更前に設定をバックアップし、ダークモードに切り替えて、すべてのフェンスをもう少し透明にしてください。
+
+CLI はアプリに付属しています。Microsoft Store 版では `pecofence-cli` が PATH に追加されます。ポータブル版では `pecofence-cli.exe` のフルパスをエージェントに伝えてください。
+
+<details>
+<summary><strong>コーディングエージェントとの会話例</strong></summary>
+
+> デスクトップの PDF を Docs フェンスにまとめて、今後の PDF も自動で分類して。ダークモードに切り替えて、フェンスをもう少し透明にして。
+
+```powershell
+pecofence-cli config export "$env:USERPROFILE\pecofence-before-ai.json"
+pecofence-cli snapshot save before-cleanup
+pecofence-cli fence create --title Docs
+pecofence-cli rule add --name PDFs --ext pdf --to Docs --index 0
+pecofence-cli rule apply
+pecofence-cli settings set theme dark
+pecofence-cli fence set --all opacity clear
+```
+
+</details>
+
+AI とスクリプト向けのインターフェース。`describe` はコマンド一覧と JSON Schema、`skill` はエージェント向けガイドを出力します。結果は JSON で返るので変更内容を確認でき、エラーも構造化されているため、エージェントが次の操作を判断できます。
+
+[CLI スタートガイド →](../CLI.md#start-with-your-ai-agent)
+
+## すべてのものに、居場所を
+
+<p align="center">
+  <img src="../assets/hero-ja.png" alt="PecoFence：フォルダー、実際の PDF、オリジナルのデザイン画像を表示した Liquid Glass の実画面。" width="1280">
+</p>
+
+## 実際の動きを見る
+
+### 入力するだけで、すぐ見つかる
+
+**Ctrl + Alt + Space** を押して、そのまま入力します。フェンス内の一致するファイルとフォルダーがすぐ一覧に出て、**Enter** で開けます。中国語の名前はピンインでも探せます。
+Everything は無料のファイル検索ツールです。設定で Everything の検索をオンにすると、PC 全体のファイルも一緒に検索します。
+このアニメーションでは「Ctrl を 2 回押す」を使っています。このショートカットキーは設定で選べます。
+
+![Ctrl を 2 回押すと検索ボックス付きでフェンスが手前に表示され、meet と入力するとフェンス内の Meeting notes.docx と、Everything が PC 全体で見つけた 2 つのファイルが並び、矢印キーで選んで Enter で開く様子。](../assets/search.gif)
+
+### 開く・保存のダイアログで、すぐ目的のフォルダーへ
+
+「開く」や「名前を付けて保存」のダイアログでエクスプローラーに切り替えて戻ると、そこで開いているフォルダーへジャンプします。**Ctrl+G** でも同じフォルダーへジャンプします。フォルダーのフェンスをクリックすると、そのフェンスのフォルダーへジャンプします。既定ではオフで、役立つ場面で PecoFence がオンにするか尋ねます。
+オフのままでも、フェンスを手前に表示して検索し、結果で **Enter** を押すと、「開く」ダイアログではそのファイルが開き、「名前を付けて保存」ダイアログではそのファイルのフォルダーへ移動します。
+
+![Documents を表示していた「開く」ダイアログが、エクスプローラーに切り替えて戻ると Contracts フォルダーへ、Designs のフォルダーのフェンスをクリックすると Designs へジャンプする様子。](../assets/dialog-jump.gif)
+
+### ひとつのウィンドウに、複数のワークスペース
+
+関連するフェンスはタブとしてひとつにまとめられます。Project から Ideas へはワンクリックで切り替え、広く使いたいときはタブをドラッグして外に出すだけです。
+
+![2 つのフェンスをタブにまとめ、Project と Ideas を切り替えてから、タブをドラッグして独立したフェンスに戻す様子。](../assets/tabs.gif)
+
+### ショートカットひとつで、フェンスを手前に
+
+**Ctrl + Alt + Space** を押すと、フェンスが今使っているアプリの手前に現れます。必要なものを取ったら、**Esc** で元の画面へ。
+
+![フェンスをアプリの手前に表示し、外側をクリックするかファイルを開くとアプリに戻る様子。](../assets/peek.gif)
+
+### 自動で更新されるフェンス
+
+スマートフェンスは、保存した検索の結果をいつも最新で表示します。**過去 7 日間のダウンロード**などのテンプレートを選んで**作成**をクリックすると、条件に合う新しいファイルが自動で現れます。ファイルは元の場所のままです。
+
+![フェンスのメニューで New smart fence… を選ぶと小さなウィンドウが開き、テンプレート Downloads of the last 7 days で条件が入力され、Create をクリックすると 6 つのファイルが入ったフェンスがデスクトップにでき、新しくダウンロードしたファイルが自動でそこに現れる様子。](../assets/smart.gif)
+
+### メモ、時計、自分のスクリプト
+
+**設定 → ツール**から追加できます。メモでは `[ ]` で始まる行が ToDo になり、時計は日付も表示し、スクリプトフェンスは天気などスクリプトが出力したテキストを表示します。
+
+![設定で New note をクリックするとデスクトップにメモができ、クリックで最初の ToDo にチェックが付き、Add をクリックするとその隣に時計が、続いて東京の天気を表示するフェンスができる様子。](../assets/tools.gif)
+
+マニュアルではほかにも、[仮想デスクトップごとのフェンス](https://pecofence.jiang.jp/ja/manual/#vdesk)（[GIF](../assets/vdesk.gif)）、[置いた場所にそのまま残るデスクトップのアイコン](https://pecofence.jiang.jp/ja/manual/#free-place)（[GIF](../assets/free-place.gif)）、[直前の操作を元に戻す Ctrl+Z](https://pecofence.jiang.jp/ja/manual/#undo)（[GIF](../assets/undo.gif)）を紹介しています。
+
+<sub><a href="https://pecofence.jiang.jp/ja/manual/">マニュアル</a>のアニメーションです。GIF は自動でループします。</sub>
+
+## 毎日の使い心地を変える、小さなこだわり
+
+| 体験 | できること |
+| :--- | :--- |
+| **AI + CLI** | `pecofence-cli`：**いつもの言葉で設定。** テーマ、不透明度、アイコンサイズ、全体設定を変更。すべてのフェンスをまとめて調整することもできます。 |
+| **整理の手間を減らす** | ファイルの種類、拡張子、名前、ワイルドカード、ショートカットのリンク先、日時、サイズでルールを設定。新しいファイルは自動で行き先のフェンスに収まります。 |
+| **スマートフェンス** | 検索の結果をいつも最新で表示するフェンス。過去 7 日間のダウンロードや、1 GB を超えるファイルなどを表示できます。ファイルは元の場所のままです。フォルダーのフェンスやスマートフェンスで Ctrl+F を押すと、入力しながら絞り込めます。 |
+| **仮想デスクトップごとのフェンス** | Windows の仮想デスクトップごとに別のフェンスを置けます。デスクトップを切り替えると、そのデスクトップのフェンスがフェードインします。 |
+| **壁紙になじむガラス** | Fluent と Liquid Glass の 2 つのテーマ、ライト／ダークモード、フェンスごとの色合い、不透明度、アイコンの着色。 |
+| **慣れた操作のまま** | エクスプローラーの右クリックメニュー、ドラッグ＆ドロップ、コピー／貼り付け、複数選択、サムネイル、アイコン／一覧／詳細の表示切替。 |
+| **フォルダーを手元に** | 実際のフォルダーをデスクトップ上のフェンスとして表示。サブフォルダーへ移動でき、中身の変化もその場で反映されます。マウスの戻るボタンで 1 つ上のフォルダーへ、進むボタンで元のフォルダーへ戻れます。 |
+| **必要なときだけ広げる** | フェンスをタイトルだけに折りたたみ、ホバーで展開。気に入った配置は位置とサイズを固定できます。デスクトップをダブルクリックするとフェンスがすべて隠れ、もう一度ダブルクリックすれば戻ってきます。 |
+| **デスクトップの小さなツール** | メモと ToDo、時計、そしてスクリプトフェンス。スクリプトフェンスは、天気など自分のスクリプトが出力したテキストを表示します。行をクリックしてリンクを開いたり、ToDo にチェックを付けたりもできます。どれも「設定 → ツール」やトレイメニューからすぐに追加できます。 |
+| **いつでも元に戻せる** | レイアウトのスナップショット、毎日の自動バックアップ、設定のエクスポート・インポート、ディスプレイ間のフェンス交換。 |
+| **設定を検索** | 設定ウィンドウ上部の検索ボックス（Ctrl+F）に入力すると、どの設定も見つかります。設定の言葉の一部のほか、よく使われる別名でも探せます。 |
+| **軽く、小さく** | Rust で書かれたネイティブアプリ。待機中のメモリ使用量はタスク マネージャーで約 2〜5 MB だけ。WebView2 の設定パネルは必要なときだけ読み込まれます。 |
+
+自動整理のルールは、ファイルを元の場所から動かしません。自分で行った移動などの操作は、エクスプローラーと同じように実際のファイルに反映されます。
+
+[機能一覧をすべて見る →](../FEATURES.md)
+
+## はじめる
+
+<a href="https://apps.microsoft.com/detail/9MV6WG3XNWSX?mode=direct"><img src="https://get.microsoft.com/images/ja%20dark.svg" alt="Microsoft Store から入手" width="200"></a>
+
+Microsoft Store 版は Microsoft によって署名され、自動で更新され、SmartScreen の警告も表示されません。同じアプリはほかの方法でも入手できます。
+
+- **ポータブル ZIP**：このリポジトリの **Releases** ページから `pecofence-v<バージョン>-x64-portable.zip` をダウンロードし、**ZIP 全体**をフォルダーに展開して `pecofence.exe` を実行します。
+- **インストーラー**：同じページの `pecofence-v<バージョン>-x64-setup.exe` は現在のユーザーだけにインストールされ、スタートメニューとアンインストーラーが追加されます。
+- **winget**：`winget install DayuanJiang.PecoFence` でポータブル版をインストールでき、SmartScreen の警告も出ません。
+
+<details>
+<summary><strong>動作環境、設定ファイルの場所、知っておきたいこと</strong></summary>
+
+- Windows 10 1809 以降（Microsoft Store 版は 2004 以降）、または Windows 11 22H2 以降が対象です。設定画面には Microsoft Edge WebView2 Runtime が必要です。Windows 11 には標準で含まれていますが、Windows 10 で設定が開かない場合は Microsoft のサイトからインストールしてください。
+- 初回起動時に、選択した言語で「アプリ」「フォルダー」「ファイルとドキュメント」「デスクトップ」の 4 つのフェンスが作成されます。終了すると、Windows のデスクトップアイコンは元どおり表示されます。
+- 設定は `%APPDATA%\PecoFence\config.json` に保存されます。`--portable` を付けて起動すると、実行ファイルの隣にある `config` フォルダーに保存されます。
+- ポータブル版とインストーラーはコード署名されていません。初回起動時に Windows SmartScreen が表示された場合は**詳細情報 → 実行**を選んでください。
+
+[ポータブル版ガイド](../PORTABLE.md) · [言語ガイド](../LOCALIZATION.md) · [Windows インストール版ガイド](../INSTALLER.md)
+
+</details>
+
+## 自分でビルドして、自分のものに
+
+PecoFence は Apache 2.0 ライセンスで公開されています。訳文の一言をより自然にすることから、デスクトップ操作の改善まで、あらゆる貢献を歓迎します。
+
+[貢献する](../../CONTRIBUTING.md) · [翻訳を改善する](../LOCALIZATION.md) · [開発ガイド](../DEVELOPMENT.md)
+
+## Code signing policy
+
+コード署名は [SignPath.io](https://about.signpath.io/) が無償で提供し、証明書は [SignPath Foundation](https://signpath.org/) が発行しています。
+
+- コミットとレビュー：[Dayuan Jiang](https://github.com/DayuanJiang)
+- 署名の承認：[Dayuan Jiang](https://github.com/DayuanJiang)
+
+署名するのは、このリポジトリのバージョンタグから GitHub Actions がビルドしたファイルだけです。署名のたびに手作業で承認しています。
+
+**プライバシー：** PecoFence は GitHub でアップデートを確認し、[使用状況の統計](../USAGE_STATS.md)を PecoFence のサービスに送信します。どちらも**設定 › このアプリについて**でオフにできます。アップデートの確認では GitHub の API に接続します。GitHub から応答がないときに限り、PecoFence のサイト（pecofence.jiang.jp）に接続します。このとき送るのはリクエストそのもの（PecoFence のバージョン番号を含みます）だけです。**フィードバック**から送った内容は PecoFence のフィードバック サービスに届きます。設定画面は Microsoft Edge WebView2 で動いており、[Microsoft のプライバシーに関する声明](https://privacy.microsoft.com/privacystatement)が適用されます。
+
+---
+
+**見るたびに、気持ちのいいデスクトップを。**  
+[Apache 2.0 ライセンス](../../LICENSE) · [サードパーティライセンス](../../third_party/README.md)

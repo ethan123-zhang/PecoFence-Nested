@@ -1,0 +1,905 @@
+# pecofence-cli
+
+`pecofence-cli.exe` is a small console program shipped next to `pecofence.exe`. It drives the
+PecoFence instance that is already running on your desktop and prints JSON, so it works equally
+well for people in a terminal and for coding agents (Claude Code, Codex, ...). It never edits
+`config.json` itself; if the app is not running it says so and exits with code 3.
+
+## Start with your AI agent
+
+Describe the result you want in Claude Code, Codex, Cursor or another coding agent that can run
+local commands. The CLI lets the agent inspect your desktop and apply settings, arrange fences,
+organize icons and create sorting rules in the running app.
+
+1. Install and open PecoFence. The CLI is included in both the Microsoft Store edition and the
+   portable ZIP; see [Install and PATH](#install-and-path) below.
+2. Open your AI coding agent. For the portable edition, include the full path to
+   `pecofence-cli.exe` in your request.
+3. Paste this request:
+
+> Use pecofence-cli to configure my desktop. First read pecofence-cli skill and pecofence-cli
+> describe, then inspect my current settings and fences. Back up my configuration before changes.
+> Switch to dark mode and make all fences more transparent.
+
+You can also ask it to:
+
+- **Set up a project:** create a Work fence, choose its position and icon size, and group related
+  fences as tabs.
+- **Keep files organized:** put desktop PDFs in a Docs fence and create a rule for future PDFs.
+- **Reuse your setup:** export the configuration, save a layout snapshot, or restore a previous
+  configuration.
+
+`pecofence-cli skill` supplies the usage guide and `pecofence-cli describe` supplies the command
+catalog and JSON Schemas. The agent can read both directly; to make the guide available in future
+sessions, save it as a skill using the [coding-agent instructions](#for-coding-agents).
+
+### Example: change appearance from PowerShell
+
+With PecoFence running and the CLI on PATH:
+
+```powershell
+pecofence-cli settings get
+pecofence-cli fence list
+pecofence-cli config export "$env:USERPROFILE\pecofence-before-ai.json"
+pecofence-cli settings set theme dark
+pecofence-cli fence set --all opacity clear
+pecofence-cli settings get theme
+pecofence-cli fence list
+```
+
+The export includes settings, rules and layouts. Choose a fresh export filename if you want to
+keep an earlier backup; export overwrites the destination. Layout snapshots cover fence layouts,
+not global settings or rules. Neither a configuration export nor a layout snapshot backs up file
+contents or undoes real file moves through folder portals.
+
+## Install and PATH
+
+- **Microsoft Store build**: `pecofence-cli` is on `PATH` through an App Execution Alias, so any
+  terminal can run it right after installation. The alias can be turned off in
+  *Settings › Apps › Advanced app settings › App execution aliases*.
+- **Portable ZIP**: run it from the extracted folder (`.\pecofence-cli.exe ...`) or add that folder
+  to your user `PATH`; in PowerShell, from inside the folder:
+  `[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';' + $PWD, 'User')`.
+  New terminals then find `pecofence-cli` by name. `SKILL.md` at the root of the ZIP is the same
+  text `pecofence-cli skill` prints.
+
+## How it talks to the app
+
+The app listens on the named pipe `\\.\pipe\PecoFence.<SID>` (or `\\.\pipe\PecoFence.<SID>.<instance>`
+for a named test instance), where `<SID>` is the security identifier of the Windows account it runs
+as (`S-1-5-21-...`, shown by `whoami /user`). Pipe names are shared by the whole computer; the SID
+keeps the PecoFence of two accounts signed in at the same time apart, and the CLI reaches the
+instance of the account it runs as from any session, an ssh login included. Only that account,
+SYSTEM and elevated administrators can open the pipe.
+
+Every CLI call opens one connection, sends one JSON request line, reads one JSON response line and
+exits; there is no daemon and nothing stays resident. Requests are executed on the app's UI thread, so while a PecoFence context menu or dialog is open the reply waits; after
+`--timeout` (default 15 s) the CLI gives up with exit code 4 and the app discards the request instead
+of running it late. A request the app picked up right before that deadline may still have run, so
+after an exit 4 read the state back (`fence list`) before retrying a mutation.
+
+## Global flags
+
+| Flag | Meaning |
+|---|---|
+| `--instance <NAME>` | Talk to a named test instance. Defaults to the `PECOFENCE_INSTANCE` environment variable (the same variable the app reads at start-up). Normal installs never need it. |
+| `--timeout <MS>` | How long to wait for the reply (default 15000, minimum 100; smaller values are clamped by both the CLI and the app). |
+| `--pretty` / `--compact` | Indented or single-line JSON. Default: pretty when stdout is a terminal, compact otherwise. |
+| `--fields <PATH,...>` | Keep only these keys of the result: `fence list --fields id,title,rect`, `rule list --fields list.name,list.targetTitle`. Dotted paths reach into objects, lists are projected element by element, a missing key comes out as `null`, the server's `warning` is always kept. Errors are never projected. |
+| `--ascii` | Write every non-ASCII character as `\uXXXX`. The JSON is the same document; use it when the reader decodes stdout with the Windows ANSI code page (Python's `subprocess`/`sys.stdin` on a Chinese or Japanese system, Windows PowerShell 5's `ConvertFrom-Json` on native output), which otherwise garbles titles and paths. |
+| `-V, --version` | CLI version (the app version is in `status`). |
+
+## Commands
+
+Every leaf has `--help` with an example. `FENCE` accepts an id, a unique id prefix of at least six
+hex digits, or a title (exact match first, then a unique case-insensitive substring); the word
+`inbox` always means the desktop fence (the one `fence list` shows with `"kind": "inbox"`), whatever
+its localised title. `RULE` accepts an id, a 0-based index, or a name. Snapshots accept an id, a
+unique id prefix, or a name (only while that name is unique).
+
+| Command | Example |
+|---|---|
+| `status` | `pecofence-cli status` (version, config path, counts, and per monitor `liveWallpapers`) |
+| `monitor list` | `pecofence-cli monitor list` |
+| `virtual-desktop list` | `pecofence-cli virtual-desktop list` (Windows virtual desktops in Task View order: `id`, `number`, `name`, `current`) |
+| `describe [--schema <NAME>]` | `pecofence-cli describe --schema Settings` |
+| `skill` | `pecofence-cli skill > SKILL.md` |
+| `fence list` | `pecofence-cli fence list` |
+| `fence get <FENCE>` | `pecofence-cli fence get Work` |
+| `fence create (--title <T> \| --portal <DIR>) [--rect x,y,w,h \| --monitor <ID> \| --below/--above/--right-of/--left-of <FENCE> [--size w,h]]` | `pecofence-cli fence create --title Work --rect 100,100,600,400` |
+| `fence create --tool note [--text <TEXT>] \| --tool clock \| --script <FILE>` (小工具, see below) | `pecofence-cli fence create --tool note --title Today --text "[ ] Pay rent"` |
+| `fence create --smart <TEMPLATE>` \| `--title <T> [--smart-folder <DIR> ...] [--within-days <N>] [--ext <EXTS>] [--name-matches <TEXT>] [--everything <SEARCH>]`, both with `[--match all\|any]` (智能栅栏, see below) | `pecofence-cli fence create --smart downloads` |
+| `fence delete <FENCE>` | `pecofence-cli fence delete Temp` |
+| `fence rename <FENCE> <TITLE>` | `pecofence-cli fence rename Work Projects` |
+| `fence refresh <FENCE>` | `pecofence-cli fence refresh Weather` (script fences: run the script now; smart fences: search again now; other fences are `unsupported`) |
+| `fence open-folder <FENCE> <FOLDER>` | `pecofence-cli fence open-folder Projects 2026` (as a double-click on the folder: a subfolder in a folder fence, or any folder in a fence of icons, shown in place of its icons; a relative `FOLDER` starts at the folder the fence shows; not saved) |
+| `fence up <FENCE>` / `fence forward <FENCE>` | `pecofence-cli fence up Projects` (one folder up, as Backspace and the mouse's back button; `forward` goes back into the folder `up` left, as the forward button; `fence get` shows the folder in `portal.current` or `openedFolder`) |
+| `fence move <FENCE> (--rect x,y,w,h \| --x <N> --y <N> \| --monitor <ID>)` | `pecofence-cli fence move Work --x 1200 --y 80` |
+| `fence resize <FENCE> [--w <N>] [--h <N>]` | `pecofence-cli fence resize Work --w 800` |
+| `fence fit <FENCE>` | `pecofence-cli fence fit Tools` (height that shows every item) |
+| `fence set (<FENCE> \| --all) <PROP> <VALUE> [--string]` | `pecofence-cli fence set Work layout list` |
+| `fence roll (<FENCE> \| --all)` | `pecofence-cli fence roll Work` |
+| `fence unroll (<FENCE> \| --all)` | `pecofence-cli fence unroll --all` |
+| `fence dock-top <FENCE>` | `pecofence-cli fence dock-top Work` |
+| `fence merge <FENCE> --into <FENCE>` | `pecofence-cli fence merge Games --into Work` |
+| `fence detach <FENCE>` | `pecofence-cli fence detach Games` |
+| `fence hide-all` / `fence show-all` | `pecofence-cli fence hide-all` |
+| `fence open-options <FENCE>` | `pecofence-cli fence open-options Work` |
+| `item list [--fence <FENCE>] [--kind <KIND>] [--ext <EXT>]` | `pecofence-cli item list --fence inbox --kind documents` |
+| `item move (<ITEM>... \| --glob <PATTERN> [--from <FENCE>]) --to <FENCE> [--dry-run]` | `pecofence-cli item move --glob "*.pdf" --from inbox --to Docs` |
+| `item rename <ITEM> <NAME> [--keep-ext false]` | `pecofence-cli item rename "C:\Users\me\Desktop\IMG_2031.pdf" "2026-09 electricity bill"` |
+| `settings get [PATH]` | `pecofence-cli settings get peek.enabled` |
+| `settings set <PATH> <VALUE> [--string]` | `pecofence-cli settings set peek.enabled false` |
+| `settings open-ui` | `pecofence-cli settings open-ui` |
+| `rule list` | `pecofence-cli rule list` |
+| `rule add --name <N> --to <FENCE\|inbox> <conditions...> [--index <N>]` | `pecofence-cli rule add --name PDFs --ext pdf --to Docs` |
+| `rule remove <RULE>` | `pecofence-cli rule remove PDFs` |
+| `rule enable <RULE>` / `rule disable <RULE>` | `pecofence-cli rule disable 0` |
+| `rule move <RULE> --to <INDEX>` | `pecofence-cli rule move PDFs --to 0` |
+| `rule import <FILE\|->` | `pecofence-cli rule import rules.json` |
+| `rule apply [--dry-run]` | `pecofence-cli rule apply --dry-run` |
+| `snapshot list` | `pecofence-cli snapshot list` |
+| `snapshot save <NAME>` | `pecofence-cli snapshot save before-cleanup` |
+| `snapshot restore <ID> [--dry-run]` | `pecofence-cli snapshot restore 3f9c2a1e --dry-run` |
+| `snapshot delete <ID>` | `pecofence-cli snapshot delete 3f9c2a1e` |
+| `config export <FILE>` | `pecofence-cli config export C:\Users\me\Desktop\pecofence.json` (absolute path, overwrites) |
+| `config import <FILE>` | `pecofence-cli config import C:\Users\me\Desktop\pecofence.json` (replaces everything; layout snapshotted first) |
+| `config check [FILE]` | `pecofence-cli config check C:\Users\me\Desktop\pecofence.json` (offline; defaults to the config in use) |
+| `backup list` | `pecofence-cli backup list` (daily backups beside config.json, newest first) |
+| `backup restore <FILE>` | `pecofence-cli backup restore "C:\Users\me\AppData\Roaming\PecoFence\backups\2026-09-23.json"` (a path from `backup list`) |
+| `peek start [--search <TEXT>]` / `peek end` | `pecofence-cli peek start --search invoice` (`--search` puts the text in Peek's search box as if typed, so the list of matches shows) |
+| `windows-desktop start` / `windows-desktop end` | `pecofence-cli windows-desktop start` (hide every fence and show the Windows desktop icons until `end`; not saved) |
+| `watch [--fence <FENCE>] [--events <E,...>] [--once] [--heartbeat]` | `pecofence-cli watch --fence inbox --once` |
+| `log [-f] [-n <N>]` | `pecofence-cli log -n 100` (text, not JSON) |
+| `paths` | `pecofence-cli paths` (config, backups, log, crash dumps; offline) |
+
+`fence create --portal <DIR>` shows a folder as a fence; `--title` is optional there and defaults to
+the folder name. `--below`, `--above`, `--right-of` and `--left-of <FENCE>` place the new fence next
+to an existing one: the near edges aligned (left edges for above/below, top edges for left/right),
+the snapping gap (`snapping.gapPx` DIPs at that monitor's DPI) between the two, and the size of the
+other fence unless `--size w,h` says otherwise. A rect that would leave that monitor's work area is
+`invalid_value` with `details.rect` / `details.workArea`; overlapping other fences only adds a
+`warning` naming them.
+
+`fence fit <FENCE>` (method `fences.fit`) sets the height to `fit.fittingHeight` (see *Geometry*
+below): every item visible, no scrollbar, and no empty rows. The bottom edge of an open fence glides
+to the new height, as with 「适应内容大小」 in the fence menu; a rolled-up fence takes it at once. A tab resizes the window it is shown
+in; only the tab currently shown can be measured, so another tab is `unsupported` (click it or
+`fence detach` it first).
+
+`fence set` properties (values as shown by `fence get`): `title` (or `fence rename`), `iconSize` 24
+to 128 in steps of 4 (the fence menu offers 32/48/64/96), `spacing` compact/normal/loose,
+`spacingPx` -12 to 32 in steps of 4 (DIPs the icon cell gains in width: compact is -12, normal 0,
+loose 16; `fence get` reports both, with `spacing` naming the nearest preset), `iconAlign`
+left/center/right (center: a row of icons that does not fill the fence width, the last one too,
+sits in the middle; right: every row fills from the right edge, its first icon at the right and
+the next one to its left; icons view only; left by default), `autoHeight`,
+`locked`, `expandUpward` (rolled up, it opens upward from its title row where it fits
+above it, else downward, for fences resting on the taskbar; the row stays where it is;
+`bottomAnchored` in `fence get` says whether the bottom edge is the one that stays put, which
+`fence resize --h` and `fence fit` keep), `excludeFromQuickHide`, `opacity`
+default/clear/solid/transparent (transparent: no glass, rim or shadow until the pointer is over the
+fence), `tint` `"#RRGGBB"` or `null`, `tintTitleOnly` (the tint washes only the title row),
+`tabColor` `"#RRGGBB"` or `null` (the bar under the fence's tab in a tab strip; `null` follows its
+tint), `titleColor` theme/tint/white/black/`"#RRGGBB"`, `titleSize` small/normal/large/extraLarge,
+`textSize` small/normal/large/extraLarge (note and script fences: the size of their text, check
+boxes and clickable rows, 12/14/18/24 DIPs; normal by default; other fences refuse it, and a
+clock's text follows the size of its fence instead),
+`titleOnHover` default/hover/always (hover: the title row folds away until the pointer is over the
+fence; default follows `rollUp.titleOnHover`), `transparentOnHover` (a fence whose `opacity` is
+transparent stays transparent while the pointer is over it: no glass, rim or shadow, and a title
+row hidden by `titleOnHover` stays hidden, though it still moves the fence; off by default; no
+effect at another opacity), `layout` icons/list/details,
+`sort` manual/name/type/date/size/openCount, `reverse`, `groupByDate`, `foldersFirst` (folders above files in a sorted fence), `labelLines` 0/1/2/3 (lines
+of the label under each icon in the icons layout; 0 shows the icons without labels),
+`openFoldersInside` (any fence but a portal: double-clicking a folder, or a shortcut to a folder,
+shows that folder inside the fence instead of opening File Explorer; off by default),
+`portalNavigate` (portals: double-clicking a subfolder opens it inside the portal; on by default),
+`portalTitleIcon`, `hideWhenEmpty` (no window while the fence is empty, and back at its saved spot
+when an item lands in it; a portal hides only at its root folder, a tab or a host of tabs stays;
+this is also how to keep the inbox, which cannot be deleted, out of sight), `desktopLayout` (the inbox
+only: no title row, glass or edges; its icons stand down columns from the top-left of the monitor
+like the Windows desktop, around the other fences), `freePlacement` (the inbox only, while
+`desktopLayout` is on: an icon dropped on the desktop stays in that grid cell, as on a Windows desktop
+with auto arrange off; on in a new configuration; with no cells saved yet the icons start in the cells of
+their places on the Windows desktop; new icons take the first free cell down the columns; `fence get` lists each
+icon's `[column, row]` on the current monitors in `desktopCells`), `noteText` (note fences: the whole text; a line
+starting with `[ ]` or `[x]` is a to-do), `scriptPath` (script fences: the full path of the script;
+it runs at once), `scriptInterval` (script fences: minutes between runs, 1 to 1440),
+`virtualDesktops` (see *Virtual desktops* below) and the search of a smart fence (see
+[Smart fences](#smart-fences-智能栅栏)): `smartFolder`, `smartMatch`, `smartSubfolders`,
+`smartWithinDays`, `smartConditions`, `smartName`, `smartEverything`, `smartLimit`; on any other fence these are
+`unsupported`. `portalTitleIcon` also switches a smart fence's magnifier.
+`--all` applies the option to every fence one call at a time and
+skips tabs hosted inside another fence (their options belong to the host).
+
+### Virtual desktops
+
+A fence shows on every Windows virtual desktop (the default) or only on some; switching desktops
+(Win+Ctrl+Left/Right, Task View) fades the other desktops' fences out, as quick hide does.
+`virtual-desktop list` (method `virtualDesktops.list`) prints the desktops in Task View order:
+`id` (Explorer's `{GUID}`), `number` (from 1), `name` (the Task View name, else `Desktop N`) and
+`current`. With one desktop the list is empty: Windows keeps none until the second exists.
+`fence set <FENCE> virtualDesktops <VALUE>` takes `all`, `current`, or desktops by number, name or
+id, comma-separated (`virtualDesktops 1,3`, `virtualDesktops Games`); naming every desktop is
+`all`, and a name two desktops share is `invalid_value` (give the number). It acts on the whole
+window: a tab sets its host and every tab, and a fence merged into a window takes the window's
+desktops. The inbox shows on every desktop (`unsupported`), and so does a window that holds it as a
+tab: merging the inbox into a bound window makes the window show on every desktop. `fence get` reports
+`virtualDesktops` (the ids, empty for every desktop) and `onCurrentDesktop` (false: hidden until a
+switch there). The setting `perDesktopFences` (Settings › 常规, 「每个虚拟桌面各用一套栅栏」) makes
+every new fence, `fence create` too, belong to the current desktop. When a desktop is closed its
+fences go to the desktop Windows moves its windows to (the left neighbour); a configuration from
+another PC (`config import`) is matched to this PC's desktops by name, then by position.
+
+`item list` describes every item with `kind` (`folders`, `programs`, `installers`, `shortcuts`,
+`documents`, `images`, `music`, `video`, `archives`, `namespace`, `other`; the same tests the `type`
+rule condition uses), `ext`, `size`, `modified`, `created` (Unix seconds), `openCount`, `lastOpened`,
+`shortcutTarget` (resolved `.lnk` path or `.url` URL), `shortcutArguments` (a `.lnk`'s command-line
+arguments), `fileName`, `assignedBy` and `rule` (the rule that filed it). Two shortcuts are
+duplicates only when both `shortcutTarget` and `shortcutArguments` match: the same `ModOrganizer.exe`
+with another profile argument launches something else. `--kind` and `--ext` filter the list on the
+client. Most of a messy desktop can be sorted from these fields alone; open a file
+only when the name and kind do not say enough.
+
+`item rename <ITEM> <NAME>` renames the file on disk inside its folder (the same operation as F2 in
+a fence; works for portal items too). The current extension is kept unless `NAME` already ends with
+it; `--keep-ext false` renames verbatim; folders are always renamed verbatim. A name that exists
+already, or one with `\ / : * ? " < > |`, is `invalid_value`; shell namespace items (This PC,
+Recycle Bin) are `unsupported`.
+
+`item move --dry-run` (wire method `items.planMove`) changes nothing and returns
+`{"dryRun": true, "changed": false, "to", "moved": n, "fileMove": bool, "moves": [...]}` with one
+entry per requested item: `item`, `name`, `path`, `from`/`fromTitle`, `action` and, where it applies,
+`destination` and `reason`. `action` is `membership` (only the icon changes fence), `fileMove` (a
+real move on disk; `destination` is where the file lands), `none` (already there) or `skip`:
+`reason` `exists` (a file of that name is already at the destination), `notAFile` (This PC,
+Recycle Bin and friends cannot go into a folder) or `unsupported`. The real `item move` skips the
+same items, lists them in `skipped` with a `warning`, and never opens Explorer's replace-or-skip
+dialog on the user's screen. When a portal is involved its reply says `fileMove: true`: the files
+are moved on a worker thread and appear in `item list` a moment after the reply, with new ids (a
+portal item's id follows its path), so list the fence again before addressing them.
+
+`rule apply --dry-run` returns `{"dryRun": true, "changed": false, "moved": n, "moves": [...]}`
+where each move has `item`, `name`, `path`, `from`/`fromTitle`, `to`/`toTitle`, `rule`/`ruleName`
+(`null` = the default target). Nothing moves and no snapshot is taken. Without `--dry-run` the same
+`moves` list describes what happened.
+
+An item no rule matches goes to `defaultTarget` (the inbox). With `"unmatched": "stay"` in the rule set
+(Settings › 整理规则 › 不符合任何规则的项目 › 留在当前栅栏; the default is `"defaultTarget"`), applying the
+rules leaves such an item in the fence it is in, so disabling a rule no longer sends the items it filed
+back to the inbox. An item in no fence yet still goes to `defaultTarget`. `rule list` shows the value;
+change it in Settings or with `rule import` of an edited `rule list`.
+
+`rule add --index 0` inserts the new rule ahead of existing rules in the same priority class, so a
+PDF rule can take precedence over an existing Documents rule. Without `--index`, the rule is appended.
+
+`rule add` conditions (all must match): `--ext pdf,docx`, `--type programs,folders,documents,images,
+music,video,archives,shortcuts,installers`, `--name-contains`, `--name-not-contains`, `--starts-with`,
+`--ends-with`, `--name-is`, `--glob "*.bak"`, `--folders-only` / `--files-only`, `--plain-files`, and
+`--json` with an array of `Cond` objects (`describe --schema Cond`) for everything else (size, creation
+time, idle days). `--plain-files` (`plainFiles`) matches a file that is not a folder, a program (the
+`programs` type), a shortcut (`.lnk`, `.url`, `.website`) or This PC and friends; rules are first match,
+so a `--plain-files` rule added last takes every file the rules before it left, unknown extensions
+included. `config.json` and `config export` files write this condition as
+`{"cond":"filesOnly","plain":true}`, so 0.2.1 and older still open them (and read the rule as
+`--files-only`); `rule list`, `rule import` and `--json` use `{"cond":"plainFiles"}`.
+
+`rule import` reads UTF-8 (a BOM is fine). Windows PowerShell 5 writes UTF-16 with `>`; such a file
+is rejected with `invalid_value` and the hint to re-save it (`| Set-Content -Encoding utf8`).
+The list is stored as given; when some of its rules target a fence that does not exist or cannot
+hold desktop items (a folder portal, a tool fence, a smart fence), the result carries a `warning`
+with their number, because the files they match go to the inbox. `rule add --to` refuses such a
+fence.
+
+`settings set` paths are dotted camelCase keys of the Settings object, e.g. `iconSize`, `theme`,
+`themeStyle`, `hideRealIcons` and `hideInboxWhenIconsShown` (the settings page shows the two as one
+list, 「Windows 桌面图标」), `keepIconsHidden` (with `hideRealIcons`, Windows' desktop icons stay
+hidden when PecoFence exits, so they do not flash at the next sign-in; default off),
+`hideInboxWhenIconsShown` (while `hideRealIcons` is off, the inbox
+fence shows no window and its items only show among the Windows desktop icons; a tab or a host of
+tabs stays; default off), `offerNewFence` (a rectangle drawn on empty desktop that touches no fence
+shows two small buttons at its bottom-right corner, 「新建栅栏」 and 「在此显示文件夹…」;
+default on), `featureTips` (「功能提示」: one-time cards in the corner when a
+feature would help, such as rolling up fences once there are many, showing a folder opened often on
+the desktop, or a rule for files of one type dragged into one fence; each shows once; default on),
+`showTrayIcon` (「显示托盘图标」: PecoFence's icon in the notification area of the taskbar; `false`
+takes it out at once, and it comes back only while a notification of PecoFence shows and in the
+two states whose notice names the tray menu (no Peek shortcut can be registered; the item menus
+are without their Windows entries after a crash); starting PecoFence again or `settings open-ui`
+opens the settings window then, where 「退出 PecoFence」 is under the switch; default on),
+`autoCheckUpdates` (「自动检查更新」, installer and ZIP editions: a check of GitHub's latest release,
+or of the website's copy of it when GitHub gives no answer,
+about a minute after start and then once a day, and a card once per new version; default on),
+`usageStats` (「帮助改进 PecoFence」: [usage statistics](USAGE_STATS.md); default on),
+`autostart`, `peek.enabled`, `peek.doubleCtrl` (`true` makes
+Peek open by pressing Ctrl twice quickly, with its search box, instead of the shortcut, which stays
+saved but is not registered; setting `peek.hotkey` or `peek.customHotkey` turns it off; works only
+while `peek.enabled` is on; default off), `quickHide.enabled`,
+`titleAlign` (left/center/right: the title and tab strip in every title row),
+`labelColor` (「文字颜色」 on the settings page; auto/white/black: the item names in every fence and view; auto picks dark or light
+names for each fence from the wallpaper behind it, in both styles: a Fluent fence keeps the colour
+mode's names where they read and takes the other ones where they would not, such as dark mode over a
+light wallpaper; white and black
+also colour the titles, tabs and item counts of fences whose `titleColor` is `theme`, while a fence
+or tab with a `titleColor` of its own keeps it; default auto),
+`customTheme` (the name of a theme file in the `themes` folder next to `config.json`, without
+`.json`; while it loads, its base style takes the place of `themeStyle`; `null` = the built-in
+style; see [THEMES.md](THEMES.md)),
+`tabBar` (top/left: a fence with two or more tabs shows them in its title row, or lists them in a
+column on its left that takes the title row's place; rolled up, such a fence shrinks to the
+column; default top),
+`rollUp.hoverPeek` and `rollUp.clickToExpand` (the settings page's 「收起的栅栏怎么展开」 list:
+`clickToExpand` true expands a rolled fence on one title click, rolls an open one up on the next,
+and ignores `hoverPeek` for the pointer (the page
+keeps `hoverPeek` on with it, so a file dragged onto a rolled title still expands it); both false
+leaves the double-click and the chevron; default hover), `rollUp.hoverSpeed` (the page's 「展开快慢」:
+how long the pointer or a dragged file rests on a rolled fence before it expands, and how long
+the pointer rests on a tab before `rollUp.switchTabOnHover` switches to it, `fast` 150 ms,
+`normal` Windows' mouse hover time (400 ms unless changed), `slow` 1 s; default `normal`; that
+is the wait of the first one: after one rolled fence has expanded under the pointer, the next
+rolled fence the pointer comes to within a second expands after 50 ms, and after one tab
+switch the next tabs of the strip follow the pointer after 50 ms; the full wait is back when
+the pointer has been off the rolled titles, or the tabs, for a second or a mouse button was
+pressed),
+`rollUp.pushNeighbors` (an expanded fence pushes the
+fences stacked below it down and they slide back when it rolls up; their `rect` stays where it was;
+when they reach the bottom of the work area, a fence opened by a click or by the command line opens
+only as far as they leave room, never under its title row plus 40 px, its other icons scroll, and it
+opens in full again once there is room, while a fence opened on hover still opens in full above them;
+default on), `rollUp.titleOnHover` (the title row folds away until the
+pointer is over the fence; for every fence whose `titleOnHover` is `default`),
+`rollUp.hideCountAndChevron` (no item count on a rolled title and no roll-up chevron, so the title
+bar shows the name only; double-clicking the title and the fence menu still roll up; default off), `snapping.enabled`, `snapping.gapPx` (the gap, in DIPs,
+fences keep to each other and the screen edges while snapping; 0 to 64, default 8),
+`snapping.sizeToCells` (resizing keeps whole icon columns and rows), `snapping.guideLines`
+(alignment guides while dragging, default on), `icons.chameleon`,
+`icons.shortcutArrows` (Windows' shortcut arrow on the icons of shortcuts, default on), `peek.customHotkey` (the Peek
+shortcut as text such as `Ctrl+Shift+F` or `Win+Alt+Space`: Ctrl, Alt or Win plus a letter, digit,
+F1 to F24, Num0 to Num9, Space, Enter, Tab, Esc, Backspace, Insert, Delete, Home, End, PageUp,
+PageDown or an arrow key; `null` goes back to `peek.hotkey`, whose default is Ctrl+Alt+Space, and
+setting `peek.hotkey` clears it). A
+combination Windows or another program holds is refused with `validation_failed`, like common
+Windows shortcuts (Ctrl+Space, Alt+Tab, Win plus one key).
+`windowsDesktopHotkey` (the shortcut of 「临时显示 Windows 桌面」, written like
+`peek.customHotkey`, e.g. `Ctrl+Alt+D`; one press hides every fence and shows the Windows desktop
+icons PecoFence hid, the next brings both back, and nothing of it is saved; default `null`, no
+shortcut) is checked the same way, and may not be the Peek shortcut.
+`describe --schema Settings` lists them all with their allowed values (the name is matched
+case-insensitively; an unknown name is a `usage` error listing `details.allowed`).
+
+### Values and shell quoting
+
+`fence set` and `settings set` parse `VALUE` as JSON first (`48`, `true`, `null`, `"dark"`, `[1,2]`);
+anything that is not JSON is taken as a string, so `list` and `dark` need no quotes. `--string` forces
+a string even for values that look like JSON (`fence set Work title 2024 --string`). Negative numbers
+work as they are: `fence move Work --x -1800` (a monitor to the left of the primary one).
+
+Quote values that start with `#`, `[` or `*`, or that contain spaces, so the shell does not swallow
+them: in Git Bash and other POSIX shells `#ff8800` starts a comment, so write
+`fence set Work tint "#ff8800"` (or `'"#ff8800"'`); in PowerShell `"#ff8800"` works as well. A bare
+`#` makes the CLI see two arguments and fail with `usage: missing FENCE`, whose message repeats this
+rule.
+
+## Tools (小工具)
+
+A tool fence shows a tool in place of desktop items. One switch in `settings`, `tools.enabled`
+(Settings › 小工具, `true` by default), covers note, clock and script fences: while it is off nothing
+runs and tool fences have no window until it is switched on again. `fence create --tool` (and
+`--script`) switches it on. The desktop has one clock at most: a second `fence create --tool clock`
+fails with `limitReached`. Tool fences hold no items (rules, `item move --to` and drops refuse them) and take no
+part in tabs (`fence merge` refuses them). Properties about icons (`iconSize`, `layout`,
+`autoHeight` and the like) and `fence fit` are refused for them. `--text` alone implies `--tool note`.
+An imported configuration (`config import`) with script fences switches `tools.enabled` off until
+the user turns it on again, and the reply says how many scripts wait (`scriptsHeld`): read them
+before switching it on when the file came from someone else. A snapshot that came with the file
+brings no script paths. A backup restore keeps the switch. While such scripts wait, only
+`settings set tools.enabled true` (or the switch on the settings page) starts them:
+`fence create --tool` and `--script` fail with `unsupported` and name the scripts, and a
+snapshot or backup that brings them back later switches `tools.enabled` off again
+(`scriptsHeld` in the reply of `snapshot restore`).
+
+`tools.dialogJump` (Settings › 速览与搜索 › 文件对话框 › 「对话框跳转」, `false` by default) has no fence: an Open,
+Save As or Select Folder dialog of any program jumps to the folder of the File Explorer window or
+folder fence the user comes back from, and Ctrl+G in the dialog jumps at any time.
+`tools.everything` (Settings › 速览与搜索 › 搜索 › 「速览搜索也找整台电脑（Everything）」, `false` by default) is an
+option of Peek: the Peek search box also lists what Everything, the free file search from voidtools,
+finds on the whole computer; Everything has to be running, and version 1.5 also matches Chinese
+names by pinyin. Files and folders opened from the search box are counted in `config.json` under
+`searchHistory` (lower-case paths, at most 300) and rank higher next time.
+
+- **Notes and to-dos** (`--tool note`): lines of text; a line starting with `[ ]` (or `[x]`, after
+  an optional `- ` or `* `) is a to-do whose box ticks with a click. `fence get` reports
+  `noteText`; `fence set <FENCE> noteText "..."` replaces it (use `\n` for line breaks in JSON).
+  `noteText` follows the source line order. The desktop view groups open and completed tasks and
+  uses either priority order or the order set by dragging open tasks. The note's task metadata
+  travels with the source text in configuration exports and daily backups.
+- **Clock** (`--tool clock`): the time and the long date in Windows' region format;
+  `settings set tools.clockSeconds true` (显示秒 in the clock's fence menu) adds the seconds.
+- **Script fences** (`--script <FILE>`): runs a .ps1, .py, .pyw, .cmd, .bat, .js or .exe every
+  `scriptInterval` minutes (30 by default) without a window, at most 10 seconds, and shows what it
+  prints (at most 40 lines). Its lines can be clickable rows, and a streaming script keeps running
+  (see [Script fence output](#script-fence-output)). `fence refresh <FENCE>` runs the script now
+  and restarts a streaming script. `fence get` reports `script` with `path`, `intervalMinutes`,
+  `outcome` (`done`, `failed`, `timedOut`, `missing`, `unsupported`, `notStarted`), `output`,
+  `lastRun` and `running`. PowerShell scripts are run with UTF-8 output; Python with
+  `PYTHONIOENCODING=utf-8`. PecoFence itself does not go online for this: the script does.
+  The 添加 buttons in Settings › 小工具 (and 新建小工具 in the tray and fence menus) write ready
+  examples into the configuration folder's `scripts` folder: 天气 (weather), GitHub 仓库动态 (a
+  repository's newest issues and pull requests) and 电脑状态 (a streaming script).
+
+```powershell
+pecofence-cli fence create --tool note --title Today --text "[ ] Pay rent`n[ ] Call Anna"
+pecofence-cli fence create --script "$env:USERPROFILE\Scripts\weather.ps1" --title Weather
+pecofence-cli fence set Weather scriptInterval 15
+```
+
+### To-do details (dates, reminders, colours, tags, notes)
+
+`note tasks <FENCE>` prints one `NoteTaskDto` per to-do (`describe --schema NoteTaskDto`) in
+source order: `id`, `line`, `title`, `done`, `priority`, `dueDay`, `dueMinute`,
+`remindMinutes`, `color`, `tags`, `note`, `attachments`. `note set <FENCE> <TASK>` changes the
+fields given and leaves the rest:
+
+```powershell
+pecofence-cli note tasks Today
+pecofence-cli note set Today 1 --due 2026-11-25 --time 18:00 --remind 30
+pecofence-cli note set Today 1 --priority high --color orange --tags 生活,本周 --note "取件码 8-2-1043"
+pecofence-cli note set Today 1 --done
+pecofence-cli note set Today 1 --clear-due --clear-remind
+```
+
+`--due` is a local date (`YYYY-MM-DD`, days since 1970-01-01 on the wire as `dueDay`); `--time`
+goes with it. `--remind` is minutes before the due time (`0` = on time); a to-do dated without a
+time counts as due 09:00. `--tags` replaces the whole tag list. `--done` / `--undone` edit the
+note's text as a click on the box would. Attachments are set from the detail panel only.
+
+## Script fence output
+
+A script fence shows each line its script prints. A line can end in parameters, in the format of
+SwiftBar (a menu bar tool for macOS) that make the row clickable or change its look:
+
+```
+text | key=value key="value with spaces" key='value'
+```
+
+The parameters start at the first `|` after which everything is `key=value` pairs; any other `|` is
+part of the text, so `a | b` stays text. Keys are case-insensitive and unknown keys are ignored. A
+line without parameters shows as before, so older scripts need no change. A line that is only `---`
+draws a separator. A row whose text starts with `[ ]` or `[x]` (after an optional `- ` or `* `) is
+drawn as a to-do with a check box.
+
+| Parameter | A click on the row |
+|---|---|
+| `href=<url>` | opens an `http://` or `https://` address in the default browser. Any other address (`file:`, `mailto:`, `ms-settings:`, a path) needs the header line (see Rows that start programs) |
+| `open=<path>` | opens a folder, a document (a file of a type Windows does not class as dangerous to open: a text, a picture, a PDF) or an `http://` / `https://` address, as a double-click does; a relative path starts at the script's folder. A program, a script, a shortcut, a place on the network (`\\server\...`, a mapped network drive), a disc in a CD or DVD drive or anything else needs the header line (see Rows that start programs) |
+| `run=<program>` (or SwiftBar's `bash=`), with `param1=`, `param2=` ... | needs the header line (see Rows that start programs). Runs the program with those arguments, without a window, in the script's folder; a relative path that exists there is taken from there, else from PATH. A .ps1, .py or .js runs through Windows PowerShell, `py -3` or `node`. A program that needs administrator rights and has no arguments starts through the shell, so Windows asks first |
+| `copy=<text>` | copies the text to the clipboard |
+| `action=<value>` | runs the same script again with `PECOFENCE_ACTION` set to the value and shows its new output |
+| `refresh=true` | runs the script again after the click; after a `run=` program, once that program has ended (waiting at most 60 seconds) |
+
+A row has one action: with several, the first of `href`, `open`, `run`, `copy`, `action` counts.
+`refresh=true` goes with any of them.
+
+| Parameter | Look |
+|---|---|
+| `color=` | the text colour: `red`, `green`, `orange` (or `amber`), `yellow`, `blue`, `purple`, `gray` (or `grey`) or `#rrggbb`. The named colours are Windows' status colours and get a lighter shade in the dark theme; `#rrggbb` is used as written |
+| `icon=` | text drawn before the row, such as an emoji |
+| `tooltip=` | shown while the pointer rests on a clickable row; without it the tooltip shows the URL, path, program or text to copy |
+
+A clickable row gets a light plate under the pointer and the hand cursor; a row with `href=` or
+`open=` also shows a small arrow on the right. A click on a to-do with `action=` ticks or unticks
+its box at once, and the script's next output decides what stays. A run that a click asks for
+(`action=` or `refresh=true`) while the previous run is still going waits for it to end; several
+such clicks run one after another in the order they were made, and repeated plain refreshes count
+once. The output limits stay: 40 lines, 16 KB, 300 characters a line; a long row wraps.
+
+Every run gets these environment variables:
+
+| Variable | Value |
+|---|---|
+| `PECOFENCE` | `1` |
+| `PECOFENCE_ACTION` | the clicked row's `action=` value; empty for a timed run, 立即运行, `refresh=true` and `fence refresh` |
+| `PECOFENCE_DATA` | a folder of this fence's own for what the script keeps: `<config folder>\scripts-data\<fence id>` (`pecofence-cli paths` shows the config folder). PecoFence creates it |
+| `PECOFENCE_THEME` | `light` or `dark`, PecoFence's theme |
+| `PECOFENCE_FENCE` | the fence's id |
+
+A to-do list kept in a text file and ticked from the fence (Windows PowerShell 5.1 reads a script
+without a BOM in the ANSI code page: save a script that contains non-ASCII text, such as emoji or
+Chinese, as UTF-8 with BOM):
+
+```powershell
+$file = Join-Path $env:PECOFENCE_DATA 'todo.txt'
+if (-not (Test-Path $file)) { Set-Content $file -Encoding UTF8 -Value '[ ] Pay rent', '[ ] Call Anna' }
+$lines = @(Get-Content $file -Encoding UTF8)
+if ($env:PECOFENCE_ACTION -match '^toggle:(\d+)$') {
+  $i = [int]$Matches[1]
+  $mark = if ($lines[$i].StartsWith('[x]')) { '[ ]' } else { '[x]' }
+  $lines[$i] = $mark + $lines[$i].Substring(3)
+  Set-Content $file $lines -Encoding UTF8
+}
+for ($i = 0; $i -lt $lines.Count; $i++) { "$($lines[$i]) | action=toggle:$i" }
+'---'
+"Open the list | open=""$file"""
+'PecoFence on GitHub | href=https://github.com/DayuanJiang/PecoFence color=blue'
+```
+
+### Rows that start programs
+
+Rows start programs only in a script that allows it in a comment within the first 8 KB of the
+file:
+
+```powershell
+# <pecofence.allow>run</pecofence.allow>
+"Open Task Manager | run=taskmgr.exe"
+```
+
+Without that line `run=` and `bash=` do nothing, `href=` opens `http://` and `https://` addresses
+only, and `open=` opens folders, documents and `http://` / `https://` addresses only (an address
+with a space or a double quote in it does not count as one: write `%20` and `%22`). A click that
+is refused shows a short message beside the pointer that names the line to add, and the log gets
+an info line with the script's file name and the parameter (never its value). With the line every
+parameter works as the table says. `copy=`, `action=` and `refresh=true` need no line: they start
+nothing but the script itself. In a .cmd or .bat file write the line after `::` (in a `rem` line
+cmd.exe takes `<` and `>` as redirections). A program (.exe) used as the script cannot carry the
+line: start it from a small .cmd or .ps1 that does.
+
+The reason: a row cannot tell text the script wrote from text it only passed on. A script that
+printed an issue title unchanged turned a title containing a `|` followed by a `run=` parameter
+into a row that started that program on a click (the built-in GitHub example of 0.3.0 to 0.3.3
+did).
+
+### Printing text you did not write
+
+Text from the network, from a file somebody else can change or from another program (a title, a
+user name, a file name, a weather report) can hold `|`, quotes and line breaks, and then reads as
+parameters of the row or as a row of its own. Clean every such value before printing it, also in
+a script without the header line (a forged `href=` could still send the click to another web
+page, a forged `copy=` puts its own text on the clipboard, and a forged `action=` reaches your
+script as input), and build links from parts you trust:
+
+```powershell
+function Clean($text) { "$text" -replace '\|', '¦' -replace '[\r\n]+', ' ' -replace '["'']', [char]0x2019 }
+"#$([int]$i.number)  $(Clean $i.title) | href=https://github.com/$repo/issues/$([int]$i.number)"
+```
+
+A script with the header line has to clean every such value: PecoFence refuses nothing there.
+
+### Streaming scripts
+
+A script that names itself streamable in a comment within the first 8 KB of the file,
+`<pecofence.type>streamable</pecofence.type>` (SwiftBar's `<swiftbar.type>streamable</swiftbar.type>`
+works too), keeps running: the 10-second limit does not apply. Every line it prints shows at once,
+added below what the fence shows. A line `~~~` marks a new screen: the next line printed replaces
+everything the fence showed, and the lines after it are added below again. So a script may print
+`~~~` before each new block, as SwiftBar scripts do, or after it; the old block stays until the
+next line arrives. The fence keeps the newest 40 lines. Python streaming scripts get
+`PYTHONUNBUFFERED=1`, so their lines arrive as they are printed.
+
+A click on a row with `action=` sends the value as one line to the script's standard input
+(`PECOFENCE_ACTION` stays empty for a streaming script). The script, and the programs it started,
+end when its fence is deleted or gets another script, when `tools.enabled` is switched off and when
+PecoFence exits. When the script ends by itself, the fence keeps what it showed last (after a
+failure, the error and the exit code), and PecoFence starts the script again at the next
+interval. 立即运行, `refresh=true` and `fence refresh` start it again at once.
+
+In Windows PowerShell, read the input with a stream reader and check it in the loop;
+`[Console]::In.ReadLineAsync()` would block the loop there:
+
+```powershell
+# <pecofence.type>streamable</pecofence.type>
+$in = New-Object IO.StreamReader([Console]::OpenStandardInput())
+$pending = $in.ReadLineAsync()
+$start = Get-Date
+while ($true) {
+  if ($pending.IsCompleted) {
+    if ($pending.Result -eq 'reset') { $start = Get-Date }
+    $pending = $in.ReadLineAsync()
+  }
+  '~~~'
+  "Running for $([int]((Get-Date) - $start).TotalSeconds) s"
+  'Start again | action=reset'
+  Start-Sleep -Seconds 1
+}
+```
+
+## Folder portals move real files
+
+A portal fence is a live view of a folder on disk. `item move` with a portal as the source or the
+destination is therefore an Explorer file move: the file leaves or enters that folder. Ctrl+Z on the
+desktop, or in a fence, undoes it (it is one step of both lists); layout snapshots do not cover file moves. For that
+reason `item move --glob` without `--from` never touches items shown by a portal
+(`"assignedBy": "portal"` in `item list`); name the portal with `--from <portal>` to include them. As
+a rule, always pair `--glob` with `--from`, and check `fence list` for `"kind": "portal"` before
+choosing `--to`.
+
+A portal whose `portalNavigate` is on can be double-clicked into a subfolder. It then reports that
+folder as `portal.current` (next to `portal.path`, the folder it was created for): `item list` shows
+the subfolder's contents and `item move --to <portal>` puts files there. `--dry-run` shows the exact
+`destination` of every file.
+
+A virtual fence or the inbox whose `openFoldersInside` is on shows a folder double-clicked in it (or
+the folder a shortcut points to) in place of its own icons until it goes up again. `fence get`
+reports that folder, or the subfolder of it shown, as `openedFolder` (`null` otherwise; `kind` and
+`portal` do not change). Meanwhile `itemCount`, `item list`, `item move` and `watch` keep to the
+fence's own icons: `item move --to` that fence only changes membership and never moves a file into
+the folder it shows, and `watch` reports the change as `fence.changed` with `openedFolder` in
+`changed`.
+
+## Smart fences (智能栅栏)
+
+A smart fence shows the live result of a saved search instead of icons of its own: the newest files
+that match, where they are (nothing is moved or copied). It holds no items, so rules, `item move
+--to` and drops never put anything into it; `item list --fence <FENCE>` lists its results with
+`"assignedBy": "smart"`, and they open, move, rename and delete like a folder fence's files.
+
+`fence create --smart <TEMPLATE>` makes one from a template (titled in the UI language):
+`downloads` (the Downloads folder and its subfolders, files of the last 7 days), `screenshots` (the
+Screenshots folder, images of the last 7 days), `large` (every drive, files over 1 GB), `psd` (every
+drive, `.psd` files) and `recent` (Windows' Recent Items, its shortcuts, at most 40). Or write the
+search: `--title` and any of `--smart-folder <DIR>` (repeat it to search several folders together;
+absent: every drive), `--within-days <N>` (created or written in the last N days), `--ext pdf,docx`,
+`--name-matches <TEXT>` (names matched as the Peek search matches them, pinyin too) and
+`--everything <SEARCH>` (Everything syntax, needs Everything). `--match all` (the default) wants
+every one of these; `--match any` takes a file that meets one of them (the time window, the
+extensions, the name, the Everything text), and goes with a template too. The folders always
+apply. With `any`, `--everything` cannot go with `--name-matches` or with a condition PecoFence
+tests itself (shortcut target, creation time or weekday, idle days, programs or installers):
+Everything would have to return every file of the folders for that row, and PecoFence cannot tell
+which of them the Everything text matched, so such a search is refused (`invalidValue`), also
+when `fence set` would make one. A written search keeps to files, unless it is `--match any`: then a folder whose name
+matches shows as well. A template with `--match any` leaves out its files-only row the same way
+(`--smart downloads --match any` is anything new or changed in the last 7 days, folders too), and
+`fence set <fence> smartMatch any` on a search whose conditions include `filesOnly` and others
+warns that the files-only row lets every file of the folders in.
+
+```powershell
+pecofence-cli fence create --smart downloads
+pecofence-cli fence create --title Invoices --smart-folder "$env:USERPROFILE\Documents" --ext pdf --name-matches invoice
+pecofence-cli fence create --title Papers --smart-folder D:\Work --smart-folder E:\Archive --ext pdf,docx --everything 发票 --match any
+pecofence-cli fence set Invoices smartWithinDays 90
+pecofence-cli fence set Papers smartMatch all
+pecofence-cli fence set Invoices smartConditions '[{\"cond\":\"ext\",\"value\":[\"pdf\"]},{\"cond\":\"sizeMb\",\"value\":{\"min\":1,\"max\":null}}]'
+pecofence-cli fence refresh Invoices
+```
+
+`fence get` has a `smart` object: `match` (`all` or `any`) and `folders` (none: every drive), then
+`spec` (the saved search: `folders`, `subfolders`, `match` only when it is `any`, `allOf` (rule
+conditions, as in `rule list`), `withinDays`, `name`, `everything`, `limit`, `template`; a search
+saved with one `folder` reads as that one folder), `source` (`everything`, `folder` when PecoFence read the folders itself because
+Everything does not run, `needsEverything` for a whole-computer or Everything-syntax search while
+Everything does not run, `waiting` before the first answer), `total` (matches in all; with a
+condition PecoFence tests itself (shortcut target, creation time or weekday, idle days, programs,
+installers, `--name-matches`), the matches among the newest 5000 files Everything gives, which are
+all it checks: Everything first narrows a shortcut target to `.lnk` files and idle days to files
+written before that day), `shown` and
+`query` (the search sent to Everything). The search runs with Everything when it runs, one search at
+a time; without it a folder search reads the folder on a worker (at most 20000 entries). It runs
+again 1 s and 4 s after a change in the folder, once a minute, after `fence refresh`, an import, a
+snapshot restore or a monitor layout change, and as soon as Everything starts. `fence set` changes
+the search (`smartFolder` a full path, a JSON array of full paths searched together, or `null`;
+`smartMatch` `all` or `any`; `smartSubfolders`, `smartWithinDays` 1 to 36500 or `null`,
+`smartConditions` a JSON array of rule conditions (not `origin`), `smartName` and `smartEverything`
+text or `null`, `smartLimit` 1 to 2000); a folder set this way is no longer the template's, so an import on
+another PC keeps it (a template's own folder is replaced there by that PC's Downloads, Screenshots or
+Recent Items).
+
+In the app, 新建智能栅栏… (tray menu, fence menu › 添加到桌面) and 编辑条件… (a smart fence's menu, Settings ›
+栅栏) open the smart fence editor, a small window with the same search in rows and a live count; the
+CLI does not open it.
+
+A fence that shows a folder (a folder fence, a folder opened in a fence, a smart fence) can be
+filtered with Ctrl+F or its menu's 筛选…; `fence get` then has `filter` (`text`, `shown`). The filter
+is not saved and the CLI does not set it.
+
+## Watching for changes
+
+`pecofence-cli watch` turns the connection into an event stream and prints one JSON document per
+event until you stop it (Ctrl+C) or the app exits (then it fails with exit 1 so a script loop can
+restart it). Events: `item.added`, `item.removed`, `item.moved` (with `from`/`fromTitle`),
+`fence.created`, `fence.deleted`, `fence.changed` (with `changed`: the `FenceDto` fields that
+differ, e.g. `title`, `rect`, `rolledUp`). Each carries the current `item` (an `ItemDto`) or
+`fence` (a `FenceDto`), a per-stream `seq` and `ts`. `--fence <FENCE>` limits item events to items
+entering or leaving that fence and fence events to that fence; `--events a,b` limits the kinds. A
+`heartbeat` every 30 s keeps a quiet stream alive and is hidden unless `--heartbeat`. At most four
+streams are open at a time (`limit_reached`). `describe --schema EventDto` has the exact shape.
+
+The intended use is not a long-running agent but a trigger: `watch --fence inbox --once` blocks
+until one item lands on the desktop and exits 0 with that event as its output; a script or a
+scheduled task then runs one batch (`item list`, decide, `item move` / `item rename`) and goes back
+to waiting. Events are produced by diffing the app's state every 500 ms (and right after each CLI
+mutation), so an item that is renamed on disk shows up as `item.removed` + `item.added`.
+
+## Offline commands
+
+Everything talks to the running app except `describe`, `skill`, `paths`, `log` and `config check`:
+
+- `paths` prints where the files are: `config` (from the running instance when one answers,
+  `"source": "status"`; else the default `%APPDATA%\PecoFence\config.json`, `"source": "default"`),
+  `configDir`, `backupsDir`, `log` (`%LOCALAPPDATA%\PecoFence\pecofence[.<instance>].log`),
+  `previousLog` (the last run's, `pecofence[.<instance>].prev.log`), `shareLog` (what the
+  feedback page may send, `pecofence[.<instance>].share.log`), `logDir`, and the `crashDumps`
+  (`crash-*.dmp`) found there.
+- `log [-n N] [-f]` prints the last `N` lines of that log as plain text (the one command whose
+  stdout is not JSON) and, with `-f`, follows it like `tail -f` until Ctrl+C. A restarted app
+  starts a new file (the old one becomes `previousLog`); `-f` starts over from the top when
+  that happens.
+- `config check [FILE]` parses and validates a `config.json` or `config export` file exactly like
+  the app would (exit 1 with `validation_failed` when the app would refuse it), then lints what
+  loads but will not work: rules whose target fence exists in no layout, rules targeting a folder
+  portal (error), rules without conditions, portals whose folder is missing, tabs hosted by a
+  missing fence, fence sizes outside 1 to 8192 DIP (the app clamps them when it loads the file),
+  memberships of unknown items, more than 20 snapshots, a missing or foreign
+  `$schema`. Output: `{"ok", "path", "schema", "summary": {...}, "problems": [{"level":
+  "error"|"warning", "subject", "message"}]}`; exit 1 when any problem is an error. Run it before
+  `config import`.
+
+`config.json` (and every export) starts with `"$schema": "https://pecofence.jiang.jp/schema/config.json"`,
+the JSON Schema that `describe --schema Config` prints, so editors validate and complete the file.
+The app ignores the field's value.
+
+## Output contract
+
+- Success: the result on stdout. Read-only commands return the object or array itself; every mutating
+  command returns `{"changed": bool, ...}` plus the affected object (`fence`, `rule`, `settings`,
+  ...). `changed: false` means the state was already as requested; it is not an error.
+- `snapshotId` is present only on the commands that take an automatic layout snapshot first:
+  `fence delete` when the fence has items, `rule apply` when it moves something,
+  `item move` when 20 or more desktop items change fence (not for file moves through a portal),
+  and `snapshot restore`. Snapshots record fence layouts (fences, geometry, item membership) only, never
+  settings or rules, so `settings set` and `rule import` do not return one. Automatic snapshots never
+  evict user snapshots: with 20 snapshots stored, the oldest automatic one (the CLI's `auto-cli-…` or one
+  the settings page saved before a restore, an import or a fence delete) gives its place; when all 20
+  are snapshots the user saved, none is taken and the result carries a `warning`.
+- Batches (`fence set --all`, `fence roll --all`, `fence unroll --all`) return
+  `{"changed": <any>, "results": [{"fence", "title", "changed"} | {"fence", "title", "error"} |
+  {"fence", "title", "skipped": "tab"}]}` and exit 1 if any entry failed. A connection-level error
+  (`not_running`, `timeout`, `busy`, `version_mismatch`) aborts the batch at once and is reported as
+  the command's error with its own exit code, instead of being repeated for every fence.
+- A `warning` string may be added when the command was applied but something secondary failed
+  (typically: the config file could not be written, or no automatic snapshot could be taken), or
+  part of it was skipped (`item move`: files whose name already exists at the destination).
+- `adjusted: {"requested", "applied", "reason"}` appears when the app changed a rect on its own:
+  `fence move`/`resize`/`fit` and `fence create --rect` (virtual fences and portals alike) on a fence
+  with `autoHeight` (`reason: "autoHeight"`, the height follows the content) or clamped to the size
+  limits and onto the monitor's work area (`"clamped"`; the fence goes to `applied`), and `fence set` of `iconSize`, `spacing`, `spacingPx`, `layout` or
+  `labelLines`, which snaps the window to whole icon columns and rows (`"cellSnap"`; `requested` is
+  the rect before the change). Use `applied` for further placement.
+- Failure: stderr gets `{"error": {"code", "message", "hint"?, "details"?}}`. Nothing else is ever
+  printed to stdout, so `pecofence-cli ... | jq` is always safe.
+- Usage errors detected by the argument parser keep clap's human-readable message and exit code 2.
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | Success |
+| 1 | The app returned an error (any error code not listed below), or part of a batch failed |
+| 2 | Usage error (bad flags, `usage` from the app) |
+| 3 | PecoFence is not running (`not_running`) |
+| 4 | No reply within `--timeout` (`timeout`); run `fence list` before retrying, the command may have run |
+
+## Error codes
+
+| `code` | Meaning |
+|---|---|
+| `not_running` | No PecoFence instance of this Windows account is listening on the pipe (checked by the CLI). |
+| `timeout` | No reply within `--timeout`; the app is probably inside a menu or dialog. |
+| `busy` | Too many concurrent CLI connections; retry shortly. |
+| `usage` | Malformed request, unknown method, missing or mistyped parameter. |
+| `version_mismatch` | CLI and app speak different protocol versions; update both. |
+| `fence_not_found` | No fence matches the selector. |
+| `ambiguous_fence` | Several fences match; `details.candidates` lists `{id, title}`. |
+| `item_not_found` | No item matches the id, path, name, or glob. |
+| `ambiguous_item` | Several items share that display name; use the path or id. |
+| `rule_not_found` | No rule matches the id, index, or name. |
+| `snapshot_not_found` | No snapshot matches the id or name, or several share that name (`details.candidates`; use the id). |
+| `invalid_value` | A parameter is out of range or not one of `details.allowed` (also: off-screen or oversized rects, names over 256 characters, a non-UTF-8 rules file). |
+| `invalid_path` | The `settings` path does not exist in Settings. |
+| `validation_failed` | The patched object did not deserialize; `details.expected` says what was expected. |
+| `limit_reached` | The maximum number of fences or snapshots already exists, or four `watch` streams are already open. |
+| `unsupported` | The operation does not apply to this target (inbox fence, hosted tab, ...). |
+| `internal` | Unexpected failure in the app or in the transport. |
+
+## Units and coordinates
+
+`--rect`, `--x`, `--y`, `--w`, `--h` and every `rect` / `windowRect` / `workArea` in the output are
+**physical pixels in virtual-screen coordinates**: the primary monitor's top-left corner is `0,0`,
+monitors placed to the left of it have negative `x`. `monitor list` shows each monitor's `rect`,
+`workArea` and `dpi`. A fence's `rect` is its expanded size (what `fence move`/`resize` change);
+`windowRect` is what is currently on screen (only the title bar while rolled up, lower than `rect`
+while an expanded fence above pushes it down, shorter than `rect` while the fences an open fence
+pushes cannot go lower, see `rollUp.pushNeighbors`). A tab hosted in
+another fence's window reports that window's `rect` and a `null` `windowRect`, so skip entries with
+a `tabHost` when checking fences for overlaps. The saved, DPI-independent form is in `geometry`.
+Rects that lie off every monitor or exceed the virtual screen are rejected with `invalid_value`.
+
+### Geometry: does everything fit?
+
+`fence get` / `fence list` carry `fit` for every fence that is currently on screen: `columns` and
+`rows` of the item grid at the current width, icon size and spacing (the list and details layouts
+have one column), `fittingHeight` (the window height in physical px that shows every item, capped at
+the bottom of the work area) and `overflow` (`true` when the fence is shorter than that and scrolls).
+It is `null` for a tab that is not the one shown and for fences on a disconnected monitor. `fence fit`
+applies `fittingHeight`; `fence set <FENCE> autoHeight true` keeps it applied as items come and go.
+
+## Live wallpapers
+
+`status` lists `liveWallpapers`, one entry per connected monitor (`monitor` is the id from
+`monitor list`) with a `state`: `none` (no live wallpaper covers the monitor; the fences show the
+Windows wallpaper), `pending` (a player window such as Wallpaper Engine or Lively covers it but no
+capture has worked yet; the Windows wallpaper until then), `captured` (the fences show the latest
+capture of the player) or `notCapturable` (the player draws nothing a capture can read, such as
+Wallpaper Engine's scene wallpapers, or came back black three times in a row; until a capture
+works again Fluent fences show a neutral light or dark colour and Liquid Glass fences a pane of
+translucent glass that the live wallpaper shows through).
+
+## Snapshots
+
+`snapshot save <NAME>` stores the current fence layout and returns `{"changed": true, "snapshot":
+{"id", "name", "ts", "fenceCount"}}`. PecoFence keeps one layout per monitor combination it has seen
+(a laptop docked and undocked has two), and a snapshot holds all of them; `fenceCount` counts the
+fences of the layout for the monitors connected now (what `fence list` shows after a restore). Keep
+`snapshot.id`: `snapshot restore <ID>` (full id or a unique prefix) is unambiguous, whereas a name
+only resolves while exactly one snapshot carries it. With 20 snapshots stored, `snapshot save` drops the
+oldest automatic one (`auto-cli-*`, or one the settings page took before a restore or an import) to make
+room; it fails with `limit_reached` only when all 20 are snapshots you saved.
+Restoring snapshots the current layout first and returns that `snapshotId`, so a restore can itself
+be undone. Snapshots do not include settings, rules, or files moved through portals.
+Restoring one also leaves the note texts and the scripts of script fences as they are now. A
+deleted note or script fence keeps its text or script while a snapshot still holds the fence, so
+restoring that snapshot brings it back complete; only the snapshot taken before an import or a
+backup restore puts back the texts and scripts from before.
+
+`snapshot restore <ID> --dry-run` (wire method `snapshots.planRestore`) restores nothing and takes no
+snapshot. It compares the fences shown now with the ones the restore would show on the monitors
+connected now and returns `{"changed": false, "dryRun": true, "snapshot": {...}, "added": [...],
+"removed": [...], "moved": [...], "updated": [...]}`. Every entry has the fence's `id` and `title`
+(the title after the restore; a removed fence's title now). `moved` entries add `from` and `to`, the
+saved rectangle now and after the restore in physical px (a move or a resize). `updated` entries add
+`fields`, the saved fields that change besides the position, named as `config export` writes them:
+`title`, `rolledUp`, `items` (membership or manual order), `appearance` (opacity, tint, title colour),
+`view`, `tabHost` and so on. Empty lists mean the restore changes nothing. A fence whose monitor is not
+connected is placed by the app after a real restore, so its `to` can differ from where it ends up.
+
+## Test instances
+
+`PECOFENCE_INSTANCE=<name> pecofence.exe ...` starts an independent instance with its own pipe
+`\\.\pipe\PecoFence.<SID>.<name>`. `pecofence-cli --instance <name>` (or the same environment variable)
+addresses it. This exists for development and automated tests; a normal installation has exactly one
+instance and needs neither.
+
+## Limits
+
+- `config import` and `backup restore` replace the whole configuration (settings, rules, layouts). The
+  current layout is snapshotted first, but snapshots do not cover settings or rules; run
+  `config export` first if you may want the old values back.
+- Tabs hosted inside another fence's window share its geometry: `fence move`/`resize` on a tab fails
+  with `unsupported` (address the host fence, or `fence detach` first), and `--all` batches skip tabs.
+- Deleting a fence also deletes the rules that target it; its items return to the desktop fence.
+  The desktop (inbox) fence cannot be deleted.
+- Titles, rule names and snapshot names are limited to 256 characters; `rule add` needs at least one
+  condition.
+- On the Microsoft Store build, `autostart` switches the package's startup task in Windows. When the
+  user turned it off in Windows (Settings › Apps › Startup or Task Manager) or a policy decides,
+  the app cannot change it: the value stays as Windows has it, the reply warns that `autostart` was
+  rolled back, and Windows' Startup Apps settings page opens.
+- Only `describe`, `skill`, `paths`, `log` and `config check` work while the app is not running;
+  the CLI never edits `config.json` itself.
+
+## For coding agents
+
+`pecofence-cli skill` prints a SKILL.md written for coding agents (when to use the tool, output
+contract, safety rules, recipes). Save it in your agent's skills folder. For example, from a
+project in PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force .claude/skills/pecofence-cli
+pecofence-cli skill | Set-Content -Encoding utf8 .claude/skills/pecofence-cli/SKILL.md
+```
+
+Use the skills location your agent supports; `.claude/skills/` is the Claude Code example. With the
+ZIP build, put its folder on `PATH` (see *Install and PATH*) so the agent can call `pecofence-cli`
+by name (and a permission rule such as Claude Code's `Bash(pecofence-cli:*)` matches it). You can
+also copy the short AGENTS.md snippet at the end of the guide into your project's `AGENTS.md`.
+`pecofence-cli describe` prints the machine-readable catalog the guide refers to.

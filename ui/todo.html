@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+<meta charset="utf-8">
+<title>待办详情</title>
+<style>
+  /* Theme tokens. Every value below comes from the app (the same `Theme` the fences paint
+     with), so this page looks like the fence it belongs to instead of like a web page. */
+  :root{
+    --accent:#63C6F0;
+    --on-accent:#06232e;
+    --radius:8px;
+    --font:"Segoe UI Variable Text","Microsoft YaHei UI",system-ui,sans-serif;
+    --label:"Segoe UI","Microsoft YaHei UI",system-ui,sans-serif;
+    --plate:rgba(30,32,38,.72);
+    --rim:rgba(255,255,255,.14);
+    --text:#F2EEE7;
+    --text-2:#B6AFA3;
+    --text-3:#8F887C;
+    --hair:rgba(255,255,255,.13);
+    --hover:rgba(255,255,255,.07);
+    --active:rgba(255,255,255,.12);
+    --field:rgba(255,255,255,.055);
+    --field-border:rgba(255,255,255,.13);
+    --btn:rgba(255,255,255,.08);
+    --shadow:0 16px 38px rgba(0,0,0,.45);
+    color-scheme: dark;
+  }
+  :root.light{
+    --plate:rgba(255,255,255,.80);
+    --rim:rgba(255,255,255,.72);
+    --text:#241c14;
+    --text-2:#6f5f4d;
+    --text-3:#8d7f6d;
+    --hair:rgba(120,98,74,.20);
+    --hover:rgba(0,0,0,.045);
+    --active:rgba(0,0,0,.07);
+    --field:rgba(255,255,255,.62);
+    --field-border:rgba(110,90,68,.18);
+    --btn:rgba(0,0,0,.035);
+    --shadow:0 14px 32px rgba(30,24,18,.18);
+    --on-accent:#06232e;
+    color-scheme: light;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--font);color:var(--text);background:transparent;overflow:hidden;
+    display:flex;align-items:stretch;
+  }
+  /* The plate: what the host's window shows is this page's background, so it carries the
+     theme's plate colour, rim and corner radius. */
+  .plate{
+    flex:1;display:flex;flex-direction:column;min-height:0;
+    background:var(--plate);border:1px solid var(--rim);border-radius:var(--radius);
+    box-shadow:var(--shadow);overflow:hidden;
+  }
+  .head{flex:none;display:flex;align-items:flex-start;gap:10px;padding:14px 16px 6px}
+  .head .grow{flex:1;min-width:0}
+  .title{
+    font-size:16px;font-weight:600;line-height:1.32;outline:none;border-radius:6px;
+    padding:2px 5px;margin-left:-5px;cursor:text;word-break:break-word;
+  }
+  .title:focus{background:var(--field);box-shadow:0 0 0 1px var(--accent)}
+  .sub{font-size:11.5px;color:var(--text-2);margin-top:4px;padding-left:0}
+  .sub .late{color:#D8695E;font-weight:600}
+  .iconbtn{
+    width:26px;height:26px;border-radius:calc(var(--radius) - 2px);border:1px solid var(--hair);
+    background:var(--field);color:var(--text-2);display:flex;align-items:center;justify-content:center;
+    font:13px var(--font);cursor:pointer;flex:none;
+  }
+  .iconbtn:hover{background:var(--active);color:var(--text)}
+  .body{flex:1;min-height:0;overflow-y:auto;padding-bottom:4px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;padding:8px 16px 4px}
+  .field{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .k{font-size:10.5px;letter-spacing:.4px;color:var(--text-3)}
+  .v{
+    min-height:30px;display:flex;align-items:center;gap:6px;padding:0 8px;border-radius:calc(var(--radius) - 2px);
+    border:1px solid var(--field-border);background:var(--field);font-size:12.5px;
+  }
+  input[type=date],input[type=time],select{
+    border:none;background:transparent;color:var(--text);font:12.5px var(--label);outline:none;height:28px;min-width:0;
+  }
+  input[type=date]{flex:1}
+  select{cursor:pointer;width:100%}
+  .hint{margin-left:auto;font-size:11px;color:var(--text-3);cursor:pointer;padding:3px 5px;border-radius:5px;flex:none}
+  .hint:hover{background:var(--hover);color:var(--text)}
+  .seg{display:flex;gap:2px;background:var(--field);border:1px solid var(--field-border);border-radius:calc(var(--radius) - 2px);padding:2px}
+  .seg button{
+    border:none;background:transparent;font:12px var(--font);color:var(--text-2);
+    border-radius:calc(var(--radius) - 3px);padding:4px 10px;cursor:pointer;
+  }
+  .seg button.on{background:var(--active);color:var(--text);font-weight:600}
+  .swatches{display:flex;gap:6px;align-items:center}
+  .sw{width:16px;height:16px;border-radius:50%;cursor:pointer;border:1.5px solid transparent;background:var(--c)}
+  .sw.on{border-color:var(--text);box-shadow:0 0 0 2px var(--plate)}
+  .sw.none{background:transparent;border:1.5px dashed var(--field-border);position:relative}
+  .sw.none::after{content:"×";position:absolute;inset:0;font-size:10px;line-height:13px;text-align:center;color:var(--text-3)}
+  .tagbox{display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:26px}
+  .tag{
+    display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border-radius:10px;
+    font-size:11px;color:var(--text-2);border:1px solid var(--hair);background:var(--field);
+  }
+  .tag::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.7}
+  .tag .x{cursor:pointer;opacity:.55;font-size:10px}
+  .tag .x:hover{opacity:1}
+  .tagbox input{border:none;outline:none;background:transparent;color:var(--text);font:12px var(--label);width:130px;height:20px}
+  .note-wrap{padding:4px 16px 0}
+  textarea{
+    width:100%;min-height:90px;resize:vertical;border-radius:calc(var(--radius) - 2px);
+    border:1px solid var(--field-border);background:var(--field);color:var(--text);
+    font:12.5px/1.7 var(--label);padding:9px 11px;outline:none;
+  }
+  textarea:focus{border-color:var(--accent)}
+  .attach{padding:8px 16px 0;display:flex;gap:8px;flex-wrap:wrap}
+  .file{
+    display:flex;align-items:center;gap:7px;height:28px;padding:0 9px;border-radius:calc(var(--radius) - 2px);
+    border:1px dashed var(--field-border);background:var(--field);font-size:12px;color:var(--text-3);
+  }
+  .file.open{border-style:solid;color:var(--text);cursor:pointer}
+  .file.open:hover{background:var(--hover);border-color:var(--accent)}
+  .file.add{cursor:pointer}
+  .file.add:hover{background:var(--hover);color:var(--text)}
+  .file .x{padding:0 2px;color:var(--text-3);cursor:pointer}
+  .file .x:hover{color:var(--text)}
+  .file.open .name{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .actions{
+    flex:none;display:flex;align-items:center;gap:8px;padding:11px 16px 12px;
+    border-top:1px solid var(--hair);
+  }
+  .status{margin-right:auto;font-size:11px;color:var(--text-3)}
+  .btn{
+    height:28px;padding:0 12px;border-radius:calc(var(--radius) - 2px);font:12px var(--font);
+    color:var(--text);border:1px solid var(--hair);background:var(--btn);cursor:pointer;
+  }
+  .btn:hover{background:var(--active)}
+  .btn.primary{background:var(--accent);border-color:transparent;color:var(--on-accent);font-weight:600}
+  .btn.danger{color:#D8695E}
+  /* preview only: a wallpaper behind the plate so it reads like on the desktop */
+  body.preview{background:
+      radial-gradient(1200px 820px at 16% 6%, #ffdcb4 0%, transparent 60%),
+      radial-gradient(1000px 720px at 84% 10%, #bcd8ff 0%, transparent 62%),
+      radial-gradient(920px 900px at 70% 94%, #ffc2cb 0%, transparent 60%),
+      linear-gradient(140deg,#f7f1e8,#e2e9f4 55%,#ece0e7);}
+  body.preview.darkbg{background:
+      radial-gradient(1200px 820px at 16% 6%, #43364f 0%, transparent 62%),
+      radial-gradient(1000px 720px at 84% 10%, #1f3d5c 0%, transparent 62%),
+      radial-gradient(920px 900px at 70% 94%, #4c2a3a 0%, transparent 60%),
+      linear-gradient(140deg,#181b22,#121620 55%,#1b1820);}
+  body.preview .plate{margin:18px}
+</style>
+</head>
+<body class="preview darkbg">
+<div class="plate">
+  <div class="head">
+    <div class="grow">
+      <div class="title" id="title" contenteditable="true" spellcheck="false"></div>
+      <div class="sub" id="sub"></div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <div class="iconbtn" id="doneBtn" data-title="完成 / 取消完成" title="完成 / 取消完成">✓</div>
+      <div class="iconbtn" id="closeBtn" title="关闭 (Esc)">✕</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="grid">
+      <div class="field"><span class="k" id="kDue" data-t="截止">截止</span>
+        <span class="v"><input type="date" id="date"><input type="time" id="time">
+        <span class="hint" id="clearDue" data-t="清空">清空</span></span>
+      </div>
+      <div class="field"><span class="k" id="kRemind" data-t="提醒">提醒</span>
+        <span class="v"><select id="remind">
+          <option value="" data-t="不提醒">不提醒</option>
+          <option value="0" data-t="准时">准时</option>
+          <option value="5" data-t="提前 5 分钟">提前 5 分钟</option>
+          <option value="15" data-t="提前 15 分钟">提前 15 分钟</option>
+          <option value="30" data-t="提前 30 分钟">提前 30 分钟</option>
+          <option value="60" data-t="提前 1 小时">提前 1 小时</option>
+          <option value="1440" data-t="提前 1 天">提前 1 天</option>
+        </select></span>
+      </div>
+      <div class="field"><span class="k" id="kPrio" data-t="优先级">优先级</span>
+        <span class="v"><span class="seg" id="prio">
+          <button data-p="high" data-t="高">高</button>
+          <button data-p="normal" data-t="普通">普通</button>
+          <button data-p="low" data-t="低">低</button>
+        </span></span>
+      </div>
+      <div class="field"><span class="k" id="kColor" data-t="颜色标记">颜色标记</span>
+        <span class="v"><span class="swatches" id="colors"></span></span>
+      </div>
+    </div>
+    <div class="grid" style="grid-template-columns:1fr;padding-top:0">
+      <div class="field"><span class="k" id="kTags" data-t="标签">标签</span>
+        <span class="v"><span class="tagbox" id="tags"><input id="tagInput" data-ph="输入后回车" placeholder="输入后回车"></span></span>
+      </div>
+    </div>
+    <div class="note-wrap">
+      <textarea id="note" data-ph="备注" placeholder="备注"></textarea>
+    </div>
+    <div class="attach" id="attachList"></div>
+  </div>
+
+  <div class="actions">
+    <span class="status" id="status"></span>
+    <button class="btn" id="deleteBtn" data-t="删除">删除</button>
+    <button class="btn primary" id="okBtn" data-t="关闭">关闭</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const COLORS = [
+    { id: '',       name: '无', css: 'transparent' },
+    { id: 'red',    name: '红', css: '#D8695E' },
+    { id: 'orange', name: '橙', css: '#DE9A3C' },
+    { id: 'yellow', name: '黄', css: '#D6B93B' },
+    { id: 'green',  name: '绿', css: '#4CC38A' },
+    { id: 'blue',   name: '蓝', css: '#63C6F0' },
+    { id: 'purple', name: '紫', css: '#A88BE0' },
+  ];
+  const PRIO_TEXT = { high: '高优先级', normal: '普通优先级', low: '低优先级' };
+  let task = null;
+  let translations = {};
+  const wv = window.chrome && window.chrome.webview;
+
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, '0');
+
+  function t(source) { return translations[source] || source; }
+
+  function send(message) { if (wv) wv.postMessage(message); }
+
+  /* The host's browser stands beside the window until the page has drawn once
+     (`SettingsHost::reveal`), and its title bar waits for `modeDrawn` after a colour
+     change: both are animated to the frame that follows. */
+  let drawnSent = false;
+  function drawnSoon() {
+    requestAnimationFrame(() => {
+      if (!drawnSent) { drawnSent = true; send({ type: 'drawn' }); }
+    });
+  }
+
+  /* ---------- theme: exactly the fence's tokens, pushed by the app ---------- */
+  function applyTheme(theme) {
+    if (!theme) return;
+    const root = document.documentElement;
+    root.classList.toggle('light', theme.mode === 'light');
+    if (theme.accent) {
+      root.style.setProperty('--accent', theme.accent);
+      root.style.setProperty('--accent-hover', theme.accent + 'E6');
+    }
+    if (typeof theme.radius === 'number') root.style.setProperty('--radius', theme.radius + 'px');
+    const map = {
+      plate: '--plate', rim: '--rim', text: '--text', textSecondary: '--text-2',
+      textTertiary: '--text-3', hair: '--hair', hover: '--hover', active: '--active',
+      field: '--field', fieldBorder: '--field-border', button: '--btn',
+      onAccent: '--on-accent', shadow: '--shadow',
+    };
+    for (const [key, variable] of Object.entries(map)) {
+      if (theme[key]) root.style.setProperty(variable, theme[key]);
+    }
+    if (theme.font) {
+      root.style.setProperty('--font', theme.font);
+      root.style.setProperty('--label', theme.font);
+    }
+  }
+
+  function applyTranslations(map) {
+    translations = map || {};
+    document.querySelectorAll('[data-t]').forEach(el => { el.textContent = t(el.dataset.t); });
+    document.querySelectorAll('[data-ph]').forEach(el => { el.placeholder = t(el.dataset.ph); });
+    document.querySelectorAll('[data-title]').forEach(el => { el.title = t(el.dataset.title); });
+    $('closeBtn').title = t('关闭') + ' (Esc)';
+  }
+
+  /* ---------- the task ---------- */
+  function render() {
+    if (!task) return;
+    $('title').textContent = task.title || '';
+    const status = task.done ? t('已完成') : t('未完成');
+    const when = task.dueLabel || t('没有日期');
+    const late = task.late ? ' late' : '';
+    $('sub').innerHTML = `${escapeHtml(t('待办项'))} · ${escapeHtml(status)} · ${escapeHtml(t(PRIO_TEXT[task.priority] || ''))}` +
+      ` · <span class="when${late}">${escapeHtml(when)}</span>`;
+    if (task.dueDay != null && task.dueDay !== undefined) {
+      const civil = civilFromDay(task.dueDay);
+      $('date').value = `${civil.year}-${pad(civil.month)}-${pad(civil.day)}`;
+      $('time').value = task.dueMinute == null ? '' : `${pad(Math.floor(task.dueMinute / 60))}:${pad(task.dueMinute % 60)}`;
+    } else {
+      $('date').value = '';
+      $('time').value = '';
+    }
+    $('remind').value = task.remindMinutes == null ? '' : String(task.remindMinutes);
+    [...$('prio').children].forEach(b => b.classList.toggle('on', b.dataset.p === task.priority));
+    $('colors').innerHTML = COLORS.map(c =>
+      `<span class="sw ${c.id ? '' : 'none'} ${(task.color || '') === c.id ? 'on' : ''}" data-color="${c.id}"` +
+      ` title="${c.name}" style="--c:${c.css}"></span>`).join('');
+    $('note').value = task.note || '';
+    const tags = $('tags');
+    tags.querySelectorAll('.tag').forEach(el => el.remove());
+    (task.tags || []).forEach(tag => {
+      const chip = document.createElement('span');
+      chip.className = 'tag';
+      chip.innerHTML = `${escapeHtml(tag)}<span class="x" title="${t('移除')}">✕</span>`;
+      chip.querySelector('.x').addEventListener('click', () => {
+        const next = (task.tags || []).filter(x => x !== tag);
+        update('tags', next);
+      });
+      tags.insertBefore(chip, $('tagInput'));
+    });
+    $('doneBtn').style.color = task.done ? 'var(--accent)' : '';
+    /* 附件: one chip per linked file (click opens it, ✕ takes it off), then the ＋ button. */
+    const attach = $('attachList');
+    attach.innerHTML = '';
+    (task.attachments || []).forEach(path => {
+      const name = path.split(/[\\/]/).pop();
+      const chip = document.createElement('span');
+      chip.className = 'file open';
+      chip.title = t('打开附件');
+      chip.innerHTML = `📎 <span class="name">${escapeHtml(name)}</span><span class="x" title="${t('移除')}">✕</span>`;
+      chip.querySelector('.x').addEventListener('click', ev => {
+        ev.stopPropagation();
+        update('attachments', (task.attachments || []).filter(x => x !== path));
+      });
+      chip.addEventListener('click', () => send({ type: 'openAttachment', path }));
+      attach.appendChild(chip);
+    });
+    const add = document.createElement('span');
+    add.className = 'file add';
+    add.textContent = '＋ ' + t('添加附件…');
+    add.addEventListener('click', () => send({ type: 'pickAttachment' }));
+    attach.appendChild(add);
+  }
+
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  /* Days since 1970-01-01 → civil date (same arithmetic the app uses). */
+  function civilFromDay(days) {
+    const z = days + 719468;
+    const era = Math.floor(z / 146097);
+    const doe = z - era * 146097;
+    const yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365);
+    const y = yoe + era * 400;
+    const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));
+    const mp = Math.floor((5 * doy + 2) / 153);
+    const day = doy - Math.floor((153 * mp + 2) / 5) + 1;
+    const month = mp < 10 ? mp + 3 : mp - 9;
+    return { year: y + (month <= 2 ? 1 : 0), month, day };
+  }
+  function dayFromCivil(year, month, day) {
+    const y = year - (month <= 2 ? 1 : 0);
+    const era = Math.floor(y / 400);
+    const yoe = y - era * 400;
+    const mp = (month + 9) % 12;
+    const doy = Math.floor((153 * mp + 2) / 5) + day - 1;
+    const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+    return era * 146097 + doe - 719468;
+  }
+
+  function update(field, value) {
+    if (!task) return;
+    send({ type: 'update', id: task.id, field, value });
+    if (field !== 'title' && field !== 'done') {
+      $('status').textContent = t('已保存');
+    }
+  }
+
+  /* ---------- wiring ---------- */
+  $('title').addEventListener('blur', () => {
+    const text = $('title').textContent.trim();
+    if (!task || !text || text === task.title) { if (task) $('title').textContent = task.title; return; }
+    update('title', text);
+  });
+  $('title').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('title').blur(); } });
+  $('date').addEventListener('change', () => {
+    if (!task) return;
+    if (!$('date').value) { update('dueDay', null); update('dueMinute', null); return; }
+    const [y, m, d] = $('date').value.split('-').map(Number);
+    update('dueDay', dayFromCivil(y, m, d));
+    if ($('time').value) {
+      const [hh, mm] = $('time').value.split(':').map(Number);
+      update('dueMinute', hh * 60 + mm);
+    }
+  });
+  $('time').addEventListener('change', () => {
+    if (!task) return;
+    if (!$('time').value) { update('dueMinute', null); return; }
+    const [hh, mm] = $('time').value.split(':').map(Number);
+    update('dueMinute', hh * 60 + mm);
+  });
+  $('clearDue').addEventListener('click', () => { update('dueDay', null); update('dueMinute', null); });
+  $('remind').addEventListener('change', () => {
+    const value = $('remind').value;
+    update('remindMinutes', value === '' ? null : Number(value));
+  });
+  $('prio').addEventListener('click', e => {
+    const button = e.target.closest('button');
+    if (button) update('priority', button.dataset.p);
+  });
+  $('colors').addEventListener('click', e => {
+    const swatch = e.target.closest('.sw');
+    if (swatch) update('color', swatch.dataset.color || null);
+  });
+  $('tagInput').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const value = e.target.value.trim();
+    if (!value || !task) return;
+    const next = [...(task.tags || [])];
+    if (!next.includes(value)) next.push(value);
+    e.target.value = '';
+    update('tags', next);
+  });
+  $('note').addEventListener('blur', () => {
+    if (!task || $('note').value === (task.note || '')) return;
+    update('note', $('note').value);
+  });
+  $('doneBtn').addEventListener('click', () => { if (task) update('done', !task.done); });
+  $('deleteBtn').addEventListener('click', () => { if (task) send({ type: 'delete', id: task.id }); });
+  const close = () => send({ type: 'close' });
+  $('closeBtn').addEventListener('click', close);
+  $('okBtn').addEventListener('click', close);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  /* ---------- messages from the app ---------- */
+  if (wv) {
+    wv.addEventListener('message', event => {
+      const message = event.data;
+      if (!message || typeof message !== 'object') return;
+      if (message.type === 'theme') {
+        const wasLight = document.documentElement.classList.contains('light');
+        applyTheme(message.theme);
+        if (wasLight !== document.documentElement.classList.contains('light')) {
+          requestAnimationFrame(() => send({ type: 'modeDrawn' }));
+        }
+        drawnSoon();
+      }
+      else if (message.type === 'task') {
+        if (message.theme) applyTheme(message.theme);
+        if (message.translations) applyTranslations(message.translations);
+        task = message.task || null;
+        document.body.classList.remove('preview', 'darkbg');
+        $('status').textContent = '';
+        render();
+        drawnSoon();
+      }
+    });
+    send({ type: 'ready' });
+  }
+
+  /* ---------- ?demo=1: look at it in a browser without the app ---------- */
+  if (new URLSearchParams(location.search).has('demo')) {
+    const dark = new URLSearchParams(location.search).get('demo') !== 'light';
+    document.documentElement.classList.toggle('light', !dark);
+    task = {
+      id: 12, title: '取快递（18 点前）', done: false, priority: 'high',
+      dueDay: null, dueMinute: 1080, remindMinutes: 30, color: 'orange',
+      tags: ['生活', '本周'], note: '取件码 8-2-1043\n快递柜 23:00 关，超时要重新派送。',
+      dueLabel: '今天 18:00', late: false,
+    };
+    const today = (() => {
+      const now = new Date();
+      return Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+    })();
+    task.dueDay = today;
+    render();
+  }
+})();
+</script>
+</body>
+</html>
