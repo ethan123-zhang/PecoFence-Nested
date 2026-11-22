@@ -55,7 +55,7 @@
 下次进入点：
 ```powershell
 # 1) 人工拖拽验收（桌面）
-# 2) 建 GitHub 仓库后上传（见第 6 节）
+# 2) GitHub 已上传（见第 6 节）
 # 3) 如需继续改代码：
 $env:CARGO_HOME='D:\Documents\Codex\2026-11-18\pecofence\work\cargo'
 $env:RUSTUP_HOME='D:\Documents\Codex\2026-11-18\pecofence\work\rustup'
@@ -63,15 +63,13 @@ $env:PATH="$env:CARGO_HOME\bin;$env:PATH"
 # cargo fmt --all; cargo clippy --workspace --all-targets -- -D warnings; cargo test --workspace
 ```
 
-## 6. GitHub 上传计划（待用户建库后执行）
+## 6. GitHub 上传结果（2026-11-22）
 
-现状：仓库是浅克隆（depth=1）、detached HEAD、`origin` 指向上游；本地 60 项未提交。上传不覆盖上游仓库。
-
-计划：
-1. 在 `76fe196` 上建本地分支 `main`，把工作区全部改动提交（一条提交，中文提交信息写明：实现嵌套待办、移除编辑模式、修复撤销丢数据等）。
-2. `git remote add github <用户新仓库 URL>`，推 `main`。
-3. 新仓库会得到上游基线提交 + 本次提交（浅克隆边界在本机补不齐，远端看到的是从 `76fe196` 开始的 2 个提交）；若用户要“单提交、无上游历史”，改用 `git checkout --orphan` 重建单提交。
-4. 推送前检查代理/网络（校园网需热点 + Clash），推送后 `git rev-parse HEAD` 与 `origin/main` 回读一致。
+- 仓库：`https://github.com/ethan123-zhang/PecoFence-Nested`。原有 README 初始提交 `c10ba04` 保留为父提交，做了快进推送，没有 force push。
+- 分支 / 提交：`main` / `92cb3bc`「实现嵌套待办并移除便签编辑模式」。该提交相对父提交新增 806 个文件（全部可构建源码、README 追加的 fork 说明、`PROGRESS.md`、本文档）。
+- 本地状态：新增远端 `github`（`origin` 仍指向上游 `DayuanJiang/PecoFence`）；本地 `main` 跟踪 `github/main`，HEAD 在 `92cb3bc`。
+- 验证：重新 clone 远端后 `PROGRESS.md`、`docs/handoffs/...`、`crates/core/src/note_tasks.rs`、`ui/todo.html` 等关键文件均存在；`git ls-remote github main` 与本地 HEAD 一致（`92cb3bc`）。
+- 推送方式：HTTPS + Windows 凭据管理器，经 `127.0.0.1:7890` 代理，无交互。
 
 ## 7. 相关文件
 
