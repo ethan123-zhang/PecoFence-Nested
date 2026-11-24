@@ -667,10 +667,12 @@ pub(super) fn on_lbuttonup(
                 NoteAction::AddProject => queue.push(Command::AddNoteTask {
                     fence: v.active,
                     parent: None,
+                    open_detail: true,
                 }),
                 NoteAction::AddChild(task) => queue.push(Command::AddNoteTask {
                     fence: v.active,
                     parent: Some(task),
+                    open_detail: true,
                 }),
                 NoteAction::ToggleExpand(task) => queue.push(Command::ToggleNoteExpand {
                     fence: v.active,

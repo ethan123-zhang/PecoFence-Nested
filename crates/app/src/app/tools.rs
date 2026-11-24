@@ -1105,17 +1105,28 @@ impl App {
         }
     }
 
-    /// 新建项目 / a task's ＋: a new to-do at the end of the parent's subtasks.
-    pub(super) fn add_note_task(&mut self, fence: FenceId, parent: Option<TaskId>) {
-        let title = i18n::text(if parent.is_some() {
-            "新任务"
+    /// 新建项目 / a task's ＋: a new to-do at the end of the parent's subtasks. With
+    /// `open_detail` its detail panel opens at once, the title focused (a new project is
+    /// usually named right away); the fence menu's 添加待办 leaves the panel closed.
+    pub(super) fn add_note_task(
+        &mut self,
+        fence: FenceId,
+        parent: Option<TaskId>,
+        open_detail: bool,
+    ) {
+        let title = if parent.is_some() {
+            i18n::text("新任务")
         } else {
-            "新项目"
-        });
-        if self.state.add_note_task(fence, parent, title) {
-            self.push_note(fence);
-        } else {
-            self.notice_save_failure();
+            i18n::text("新项目")
+        };
+        match self.state.add_note_task(fence, parent, title) {
+            Some(task) => {
+                self.push_note(fence);
+                if open_detail {
+                    self.open_note_task_detail(fence, task, true);
+                }
+            }
+            None => self.notice_save_failure(),
         }
     }
 

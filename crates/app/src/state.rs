@@ -3348,18 +3348,27 @@ impl AppState {
         self.set_note_text(id, &next)
     }
 
-    /// Takes one to-do's line out of the note's text; the note keeps its other lines.
+    /// Takes one to-do and every to-do below it out of the note's text; the note keeps its
+    /// other lines. The whole block goes at once, so a subtask of a deleted project cannot
+    /// be left hanging under the project above it.
     pub fn remove_note_task(&mut self, id: FenceId, task: TaskId) -> bool {
-        let Some(text) = self.note_text(id) else {
+        let Some(text) = self.note_text(id).map(str::to_string) else {
             return false;
         };
-        let Some(line) = self.note_tasks(id).source_line(task) else {
+        let hierarchy = self.note_tasks(id).hierarchy(&text);
+        let Some(node) = hierarchy.node(task) else {
             return false;
         };
+        let mut lines: HashSet<usize> = hierarchy
+            .descendants(task)
+            .into_iter()
+            .filter_map(|task| hierarchy.node(task).map(|node| node.line))
+            .collect();
+        lines.insert(node.line);
         let next = text
             .split('\n')
             .enumerate()
-            .filter(|(index, _)| *index != line)
+            .filter(|(index, _)| !lines.contains(index))
             .map(|(_, line)| line)
             .collect::<Vec<_>>()
             .join("\n");
@@ -3425,21 +3434,40 @@ impl AppState {
     }
 
     /// Adds a new to-do under `parent` (`None`: a top-level project) at the end of its
-    /// subtasks, naming it `title`. A folded parent unfolds so the new task shows.
-    pub fn add_note_task(&mut self, id: FenceId, parent: Option<TaskId>, title: &str) -> bool {
-        let Some(text) = self.note_text(id) else {
-            return false;
-        };
+    /// subtasks, naming it `title`. A folded parent unfolds so the new task shows. Returns
+    /// the new task's id, so the caller can open its detail panel.
+    pub fn add_note_task(
+        &mut self,
+        id: FenceId,
+        parent: Option<TaskId>,
+        title: &str,
+    ) -> Option<TaskId> {
+        let text = self.note_text(id).map(str::to_string)?;
         let mut tasks = self.note_tasks(id);
         if let Some(parent) = parent {
             tasks.set_collapsed(parent, false);
         }
-        let next = tasks.insert_task(text, parent, title);
+        let before: Vec<TaskId> = tasks
+            .hierarchy(&text)
+            .nodes()
+            .iter()
+            .map(|node| node.id)
+            .collect();
+        let next = tasks.insert_task(&text, parent, title);
         if next == text {
-            return false;
+            return None;
         }
-        tasks.reconcile(text, &next);
-        self.commit_note(id, Some(next), tasks)
+        tasks.reconcile(&text, &next);
+        let created = tasks
+            .hierarchy(&next)
+            .nodes()
+            .iter()
+            .map(|node| node.id)
+            .find(|id| !before.contains(id));
+        if !self.commit_note(id, Some(next), tasks) {
+            return None;
+        }
+        created
     }
 
     /// Folds or unfolds a task's subtasks; the state is saved with the note's metadata.
@@ -4106,15 +4134,28 @@ mod tests {
         let tasks = state.note_tasks(id);
         let hierarchy = tasks.hierarchy(text);
         let a = hierarchy.nodes()[0].id;
-        assert!(state.add_note_task(id, Some(a), "新任务"));
+        let task = state
+            .add_note_task(id, Some(a), "新任务")
+            .expect("the new to-do");
         assert_eq!(
             state.note_text(id),
             Some("[ ] A\n  [ ] A1\n  [ ] 新任务\n[ ] B")
         );
-        assert!(state.add_note_task(id, None, "新项目"));
+        // The id handed back is the new row's own, so the caller can open its detail.
+        assert_eq!(
+            state.note_tasks(id).details(task).map(|d| d.title),
+            Some("新任务".to_string())
+        );
+        let project = state
+            .add_note_task(id, None, "新项目")
+            .expect("the new project");
         assert_eq!(
             state.note_text(id),
             Some("[ ] A\n  [ ] A1\n  [ ] 新任务\n[ ] B\n[ ] 新项目")
+        );
+        assert_eq!(
+            state.note_tasks(id).details(project).map(|d| d.title),
+            Some("新项目".to_string())
         );
         let current = state.note_text(id).unwrap();
         let hierarchy = state.note_tasks(id).hierarchy(current);
@@ -4122,8 +4163,28 @@ mod tests {
         assert_eq!(hierarchy.nodes()[2].depth, 1);
         // A folded parent unfolds to show the subtask just added under it.
         assert!(state.set_note_task_collapsed(id, a, true));
-        assert!(state.add_note_task(id, Some(a), "又一个"));
+        assert!(state.add_note_task(id, Some(a), "又一个").is_some());
         assert!(!state.note_tasks(id).is_collapsed(a));
+    }
+
+    #[test]
+    fn removing_a_project_takes_its_subtasks_and_keeps_the_other_lines() {
+        let mut state = test_state();
+        let text = "[ ] A\n  [ ] A1\n    [ ] A1a\n[ ] B\n  [ ] B1";
+        let id = state.new_note("tasks", rect(0, 0, 320, 240), text).unwrap();
+        let a = state.note_tasks(id).hierarchy(text).nodes()[0].id;
+        assert!(state.remove_note_task(id, a));
+        assert_eq!(state.note_text(id), Some("[ ] B\n  [ ] B1"));
+    }
+
+    #[test]
+    fn removing_a_subtask_leaves_its_project_and_siblings_alone() {
+        let mut state = test_state();
+        let text = "[ ] A\n  [ ] A1\n  [ ] A2\n[ ] B";
+        let id = state.new_note("tasks", rect(0, 0, 320, 240), text).unwrap();
+        let a1 = state.note_tasks(id).hierarchy(text).nodes()[1].id;
+        assert!(state.remove_note_task(id, a1));
+        assert_eq!(state.note_text(id), Some("[ ] A\n  [ ] A2\n[ ] B"));
     }
 
     #[test]
@@ -4139,7 +4200,7 @@ mod tests {
         assert_eq!(after, "[x] A");
         // A new task lands after the tick: the undo step is older than it and must not put
         // the old text back over it.
-        assert!(state.add_note_task(id, None, "新项目"));
+        assert!(state.add_note_task(id, None, "新项目").is_some());
         let changed = state.note_text(id).unwrap().to_string();
         assert!(!state.undo_note_task(id, before, &after));
         assert_eq!(state.note_text(id), Some(changed.as_str()));

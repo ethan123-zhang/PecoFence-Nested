@@ -17,6 +17,9 @@ pub(super) struct TodoDetail {
     host: SettingsHost,
     pub fence: FenceId,
     pub task: TaskId,
+    /// The page has not been told yet to focus the title: a to-do was just created and is
+    /// still called 新项目 / 新任务, so the user usually wants to type its name at once.
+    focus_title: bool,
 }
 
 impl TodoDetail {
@@ -39,8 +42,14 @@ fn detail_title() -> &'static str {
 
 impl App {
     /// A click on a to-do in a note: the detail panel, beside the note. A panel already open
-    /// takes the other to-do and comes to the front.
-    pub(super) fn open_note_task_detail(&mut self, fence: FenceId, task: TaskId) {
+    /// takes the other to-do and comes to the front. With `focus_title` the page selects the
+    /// title's text, so a to-do that was just created can be named by typing.
+    pub(super) fn open_note_task_detail(
+        &mut self,
+        fence: FenceId,
+        task: TaskId,
+        focus_title: bool,
+    ) {
         if self.state.note_tasks(fence).details(task).is_none() {
             tracing::debug!(%fence, task, "note detail: no such task");
             return;
@@ -50,6 +59,7 @@ impl App {
             if let Some(d) = self.todo_detail.as_mut() {
                 d.fence = fence;
                 d.task = task;
+                d.focus_title = focus_title;
                 d.set_title(detail_title());
             }
             self.push_todo_state();
@@ -97,7 +107,12 @@ impl App {
         match opened {
             Ok(Some(host)) => {
                 tracing::info!(%fence, task, "note detail opened");
-                self.todo_detail = Some(TodoDetail { host, fence, task });
+                self.todo_detail = Some(TodoDetail {
+                    host,
+                    fence,
+                    task,
+                    focus_title,
+                });
             }
             Ok(None) => {}
             Err(_) if window::quit_posted() => window::post_quit(0),
@@ -128,12 +143,18 @@ impl App {
                 self.push_todo_state();
             }
             Some("drawn") => {
+                let first = self.todo_detail.as_ref().is_some_and(|d| !d.host.drawn);
                 if let Some(d) = self.todo_detail.as_mut()
-                    && !d.host.drawn
+                    && first
                 {
                     d.host.drawn = true;
                     d.host.reveal();
                     tracing::info!(%fence, task, "note detail: page drawn");
+                }
+                // The title can only take the keyboard once the page is in its frame: a fresh
+                // panel that asked for the title at `ready` lost the selection by `reveal`.
+                if first && self.todo_detail.as_ref().is_some_and(|d| d.focus_title) {
+                    self.push_todo_state();
                 }
             }
             Some("modeDrawn") => {
@@ -154,7 +175,30 @@ impl App {
                 self.push_todo_state();
             }
             Some("delete") => {
-                tracing::info!(%fence, task, "note detail: task deleted");
+                let details = self.state.note_tasks(fence).details(task);
+                let title = details
+                    .as_ref()
+                    .map(|d| d.title.clone())
+                    .unwrap_or_default();
+                let (top_level, subtasks) = self.task_delete_scope(fence, task);
+                let owner = self
+                    .todo_detail
+                    .as_ref()
+                    .map(TodoDetail::hwnd)
+                    .unwrap_or(self.control.hwnd());
+                let caption = if top_level {
+                    pecofence_core::i18n::text("删除项目")
+                } else {
+                    pecofence_core::i18n::text("删除待办")
+                };
+                let prompt = delete_task_prompt(&title, top_level, subtasks);
+                // A modal box pumps messages like any modal loop: no window borrow is held here
+                // (this runs from the command queue, as the fence delete's question does).
+                if !window::confirm(owner, &prompt, caption) {
+                    tracing::info!(%fence, task, "note detail: delete cancelled");
+                    return;
+                }
+                tracing::info!(%fence, task, subtasks, "note detail: task deleted");
                 if self.state.remove_note_task(fence, task) {
                     self.push_note(fence);
                 } else {
@@ -337,15 +381,24 @@ impl App {
     }
 
     /// The page's theme and then the to-do it shows; nothing while the page is not ready.
-    pub(super) fn push_todo_state(&self) {
+    pub(super) fn push_todo_state(&mut self) {
         let theme = serde_json::json!({ "type": "theme", "theme": self.todo_theme_json() });
         self.post_to_todo_detail(&theme.to_string());
         self.post_todo_task();
     }
 
-    fn post_todo_task(&self) {
-        if let Some(json) = self.todo_task_json() {
-            self.post_to_todo_detail(&json);
+    fn post_todo_task(&mut self) {
+        let Some(json) = self.todo_task_json() else {
+            return;
+        };
+        // The focus request belongs to the task that was just created: it goes with the first
+        // `task` message the page can act on (once its browser is in the frame), and is never
+        // repeated for later updates.
+        if self.post_to_todo_detail(&json)
+            && let Some(detail) = self.todo_detail.as_mut()
+            && detail.host.drawn
+        {
+            detail.focus_title = false;
         }
     }
 
@@ -382,6 +435,9 @@ impl App {
                 },
                 "theme": self.todo_theme_json(),
                 "translations": translations,
+                // A to-do just created: once its browser is in the frame, the page selects the default
+                // title (新项目 / 新任务) so typing renames it at once.
+                "focusTitle": detail.focus_title && detail.host.drawn,
             })
             .to_string(),
         )
@@ -459,12 +515,54 @@ impl App {
         }
     }
 
-    /// A message for the panel's page, when it is open and ready.
-    fn post_to_todo_detail(&self, json: &str) {
-        if let Some(detail) = self.todo_detail.as_ref().filter(|d| d.host.ready) {
-            detail.post_json(json);
+    /// A message for the panel's page, when it is open and ready; true when it was handed over.
+    fn post_to_todo_detail(&self, json: &str) -> bool {
+        match self.todo_detail.as_ref().filter(|d| d.host.ready) {
+            Some(detail) => {
+                detail.post_json(json);
+                true
+            }
+            None => false,
         }
     }
+
+    /// 删除: whether `task` is a top-level project and how many to-dos hang below it, for the
+    /// question and the block deletion.
+    fn task_delete_scope(&self, fence: FenceId, task: TaskId) -> (bool, usize) {
+        let Some(text) = self.state.note_text(fence) else {
+            return (false, 0);
+        };
+        let hierarchy = self.state.note_tasks(fence).hierarchy(text);
+        let top_level = hierarchy
+            .node(task)
+            .is_some_and(|node| node.parent.is_none());
+        (top_level, hierarchy.descendants(task).len())
+    }
+}
+
+/// The question a to-do's delete asks. Kept apart from the modal box so the wording and the
+/// subtask count can be tested.
+pub(super) fn delete_task_prompt(title: &str, top_level: bool, subtasks: usize) -> String {
+    use pecofence_core::i18n;
+    let mut text = if top_level {
+        i18n::format(
+            "要删除项目“{0}”吗？",
+            std::slice::from_ref(&title.to_string()),
+        )
+    } else {
+        i18n::format(
+            "要删除待办“{0}”吗？",
+            std::slice::from_ref(&title.to_string()),
+        )
+    };
+    if subtasks > 0 {
+        text.push_str("\n\n");
+        text.push_str(&i18n::format(
+            "它下面的 {0} 个子任务也会一起删除。",
+            std::slice::from_ref(&subtasks.to_string()),
+        ));
+    }
+    text
 }
 
 /// One token as CSS: `#RRGGBB` when opaque, `rgba()` otherwise.
@@ -519,5 +617,20 @@ mod tests {
         assert!((plate.r - expected).abs() < 1.0 / 255.0, "{plate:?}");
         assert!((plate.g - expected).abs() < 1.0 / 255.0, "{plate:?}");
         assert!((plate.b - expected).abs() < 1.0 / 255.0, "{plate:?}");
+    }
+
+    #[test]
+    fn a_project_delete_names_it_and_says_how_many_subtasks_go() {
+        let prompt = delete_task_prompt("整理桌面", true, 3);
+        assert!(prompt.contains("整理桌面"), "{prompt}");
+        assert!(prompt.contains('3'), "{prompt}");
+        assert!(prompt.contains("\n\n"), "a second paragraph: {prompt}");
+    }
+
+    #[test]
+    fn a_leaf_delete_asks_once_and_mentions_no_subtasks() {
+        let prompt = delete_task_prompt("取快递", false, 0);
+        assert!(prompt.contains("取快递"), "{prompt}");
+        assert!(!prompt.contains("\n\n"), "{prompt}");
     }
 }

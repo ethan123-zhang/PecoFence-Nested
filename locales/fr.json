@@ -1076,5 +1076,11 @@
   "完成 / 取消完成": "Terminer / annuler",
   "添加附件…": "Ajouter des fichiers…",
   "打开附件": "Ouvrir la pièce jointe",
-  "选择要附在待办上的文件": "Choisir des fichiers à joindre à la tâche"
+  "选择要附在待办上的文件": "Choisir des fichiers à joindre à la tâche",
+  "新项目": "Nouveau projet",
+  "删除项目": "Supprimer le projet",
+  "删除待办": "Supprimer la tâche",
+  "要删除项目“{0}”吗？": "Supprimer le projet « {0} » ?",
+  "要删除待办“{0}”吗？": "Supprimer la tâche « {0} » ?",
+  "它下面的 {0} 个子任务也会一起删除。": "Ses {0} sous-tâches seront aussi supprimées."
 }

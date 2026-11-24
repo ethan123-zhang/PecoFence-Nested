@@ -335,6 +335,18 @@
     attach.appendChild(add);
   }
 
+  /* 新建项目 / 行尾＋: a to-do just created still has its default name, so select it for
+     typing straight away (the host asks once, with the first `task` message). */
+  function focusTitle() {
+    const el = $('title');
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
   function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
@@ -446,6 +458,7 @@
         document.body.classList.remove('preview', 'darkbg');
         $('status').textContent = '';
         render();
+        if (message.focusTitle) requestAnimationFrame(focusTitle);
         drawnSoon();
       }
     });

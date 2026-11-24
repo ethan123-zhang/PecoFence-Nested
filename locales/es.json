@@ -1076,5 +1076,11 @@
   "完成 / 取消完成": "Completar / deshacer",
   "添加附件…": "Añadir archivos…",
   "打开附件": "Abrir adjunto",
-  "选择要附在待办上的文件": "Elige archivos para adjuntar a la tarea"
+  "选择要附在待办上的文件": "Elige archivos para adjuntar a la tarea",
+  "新项目": "Nuevo proyecto",
+  "删除项目": "Eliminar proyecto",
+  "删除待办": "Eliminar tarea",
+  "要删除项目“{0}”吗？": "¿Eliminar el proyecto «{0}»?",
+  "要删除待办“{0}”吗？": "¿Eliminar la tarea «{0}»?",
+  "它下面的 {0} 个子任务也会一起删除。": "También se eliminarán sus {0} subtareas."
 }

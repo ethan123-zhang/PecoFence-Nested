@@ -21,10 +21,11 @@ Windows 桌面栅栏 [PecoFence](https://github.com/DayuanJiang/PecoFence) 的�
 ## 使用
 
 1. 便签正文仍然是 `[ ]` / `[x]` 行，缩进 2 个空格就是上一行的子项目；旧便签不需要迁移，没有缩进就都是顶层。
-2. 点复选框完成，点行尾「＋」新建子任务，点顶部「新建项目」新建顶层项目。
+2. 点复选框完成，点行尾「＋」新建子任务，点顶部「新建项目」新建顶层项目。**新建后会自动打开这个任务的详情，标题已选中**，直接打字就能改名。
 3. 点任务文字打开任务详情，在详情里改标题、日期、提醒、优先级、颜色、标签、备注和附件。
-4. 改名只能走任务详情，因为本分支已移除便签全文编辑模式：点便签空白处不再进入编辑页。
-5. 纯文字便签在界面里是只读的；需要改正文时用 CLI：
+4. 详情里点「删除」会先弹确认框（默认「否」）；确认后这个项目/待办**连同它下面的所有子任务**一起删除。
+5. 改名只能走任务详情，因为本分支已移除便签全文编辑模式：点便签空白处不再进入编辑页。
+6. 纯文字便签在界面里是只读的；需要改正文时用 CLI：
 
 ```powershell
 pecofence-cli note set <便签> "<新的正文>"
@@ -61,6 +62,8 @@ Copy-Item third_party/webview2/WebView2Loader.x64.dll target/release/WebView2Loa
 | 项 | 行为 |
 | :--- | :--- |
 | 便签待办 | 从单层列表改为按缩进建树，支持无限层级、级联勾选、父项自动完成 |
+| 新建任务 | 「新建项目」/行尾＋后自动打开任务详情并选中标题，直接打字改名 |
+| 删除任务 | 删前弹原生确认框（默认「否」），确认后连该任务的全部子任务一起删 |
 | 已完成 | 子项沉底并可折叠，顶层完成整组进底部「已完成」并递归显示 |
 | 日期分区 | 显示上去掉了「今天 / 本周 / 以后 / 没有日期」，日期与提醒仍保留在任务详情 |
 | 排序 | 每级按优先级排序；手动顺序只在同一父项目内；切手动时按当前可见顺序建立基线 |
@@ -92,7 +95,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-本分支当前状态：`cargo test --workspace` 为 869 passed / 0 failed / 2 ignored；构建、验收和回滚记录见 [PROGRESS.md](PROGRESS.md) 与 [docs/handoffs/2026-11-22-pecofence-nested-todo.md](docs/handoffs/2026-11-22-pecofence-nested-todo.md)。
+本分支当前状态：`cargo test --workspace` 为 880 passed / 0 failed / 2 ignored；构建、验收和回滚记录见 [PROGRESS.md](PROGRESS.md) 与 [docs/handoffs/2026-11-24-pecofence-new-project-detail-delete-confirm.md](docs/handoffs/2026-11-24-pecofence-new-project-detail-delete-confirm.md)。
 
 ## 致谢与许可
 

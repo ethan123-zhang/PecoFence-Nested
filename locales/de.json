@@ -1076,5 +1076,11 @@
   "完成 / 取消完成": "Abschließen / rückgängig",
   "添加附件…": "Dateien hinzufügen…",
   "打开附件": "Anhang öffnen",
-  "选择要附在待办上的文件": "Dateien zum Anhängen an die Aufgabe wählen"
+  "选择要附在待办上的文件": "Dateien zum Anhängen an die Aufgabe wählen",
+  "新项目": "Neues Projekt",
+  "删除项目": "Projekt löschen",
+  "删除待办": "Aufgabe löschen",
+  "要删除项目“{0}”吗？": "Projekt „{0}“ löschen?",
+  "要删除待办“{0}”吗？": "Aufgabe „{0}“ löschen?",
+  "它下面的 {0} 个子任务也会一起删除。": "Die {0} Unteraufgaben darunter werden mitgelöscht."
 }

@@ -3121,7 +3121,9 @@ impl App {
             }
             Command::NewScript { x, y } => self.new_script_near(x, y, None),
             Command::TodoMessage(json) => self.todo_message(&json),
-            Command::OpenNoteTaskDetail { fence, task } => self.open_note_task_detail(fence, task),
+            Command::OpenNoteTaskDetail { fence, task } => {
+                self.open_note_task_detail(fence, task, false)
+            }
             Command::ToggleNoteTask { fence, task } => self.toggle_note_task(fence, task),
             Command::MoveNoteTask {
                 fence,
@@ -3140,7 +3142,11 @@ impl App {
                 task,
                 parent,
             } => self.move_note_task_into(fence, task, parent),
-            Command::AddNoteTask { fence, parent } => self.add_note_task(fence, parent),
+            Command::AddNoteTask {
+                fence,
+                parent,
+                open_detail,
+            } => self.add_note_task(fence, parent, open_detail),
             Command::ToggleNoteExpand { fence, task } => {
                 self.toggle_note_task_collapsed(fence, task);
             }

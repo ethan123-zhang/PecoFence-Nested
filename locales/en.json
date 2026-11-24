@@ -1076,5 +1076,11 @@
   "完成 / 取消完成": "Complete / undo",
   "添加附件…": "Add files…",
   "打开附件": "Open attachment",
-  "选择要附在待办上的文件": "Choose files to attach to the to-do"
+  "选择要附在待办上的文件": "Choose files to attach to the to-do",
+  "新项目": "New project",
+  "删除项目": "Delete project",
+  "删除待办": "Delete to-do",
+  "要删除项目“{0}”吗？": "Delete the project “{0}”?",
+  "要删除待办“{0}”吗？": "Delete the to-do “{0}”?",
+  "它下面的 {0} 个子任务也会一起删除。": "Its {0} subtasks will be deleted too."
 }

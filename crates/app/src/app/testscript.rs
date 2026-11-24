@@ -130,6 +130,22 @@ impl App {
                         t.wait_until = Some(Instant::now() + Duration::from_millis(ms));
                     }
                 }
+                #[cfg(debug_assertions)]
+                // The note's own 「新建项目」 command, its detail panel and all: a test drives the
+                // same path a click on the row takes, without a mouse at a window that may be
+                // under another program.
+                ["note-add-project", title] => {
+                    if let Some(id) = self.test_fence(title) {
+                        self.add_note_task(id, None, true);
+                    }
+                }
+                #[cfg(debug_assertions)]
+                // One message the detail page posts, exactly as its buttons send it: the delete
+                // question can be answered by a test from outside the modal box.
+                ["todo-message", json @ ..] => {
+                    let json = json.join(" ");
+                    self.todo_message(&json);
+                }
                 ["dump", tag] => self.test_dump(tag),
                 ["feedback-info"] => {
                     let info = self.feedback_info_json(0);

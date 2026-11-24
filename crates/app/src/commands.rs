@@ -409,6 +409,8 @@ pub enum Command {
     AddNoteTask {
         fence: FenceId,
         parent: Option<pecofence_core::note_tasks::TaskId>,
+        /// Open the new task's detail panel at once, its title focused.
+        open_detail: bool,
     },
     /// A task's fold triangle.
     ToggleNoteExpand {

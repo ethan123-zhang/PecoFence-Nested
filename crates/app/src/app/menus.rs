@@ -1585,6 +1585,7 @@ impl App {
             CMD_FENCE_ADD_TODO => self.queue.push(Command::AddNoteTask {
                 fence,
                 parent: None,
+                open_detail: false,
             }),
             CMD_FENCE_SCRIPT_RUN => self.refresh_script(fence),
             CMD_FENCE_SCRIPT_EDIT => self.edit_script(fence),

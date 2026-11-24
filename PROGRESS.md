@@ -1,5 +1,27 @@
 # PROGRESS
 
+## 2026-11-24 上午：新建项目/子任务后自动进详情；删除待办前确认并连子任务删
+
+**需求**：便签与待办里，新建项目（以及行尾＋新建子任务）后自动打开该任务的「待办详情」并选中标题；删除任何一个项目/待办之前弹原生确认框显示是否删除，确认后连同其子任务一起删除（避免子任务按缩进被静默挂到别的项目下）。
+
+**改动**（源码 `work\PecoFence`，改动前 HEAD `dfeaa28`）：
+- `crates/app/src/state.rs`：`add_note_task` 返回新任务 id（用插入前后 hierarchy 的 id 差集，不按标题匹配，便签里已有同名「新项目」也不会串）；`remove_note_task` 改为删除「本行 + 全部后代行」。
+- `crates/app/src/app/tools.rs`、`commands.rs`、`fence_window/handler/mouse.rs`、`app/menus.rs`：`AddNoteTask` 带 `open_detail`；顶部「新建项目」与行尾＋为 true（栅栏菜单「添加待办」为 false），成功后 `open_note_task_detail(fence, id, true)`。
+- `crates/app/src/app/todo_detail.rs`：`TodoDetail.focus_title`；首个 `drawn` 之后补发一次 `task` 消息（`ready` 时发会在 `reveal` 前丢掉选择）；删除前 `window::confirm`（原生是/否，默认「否」，与删栅栏同一套），文案按顶层项目/子任务区分并带子任务数；`delete_task_prompt` 独立可测。
+- `ui/todo.html`：`focusTitle()` 聚焦标题并全选默认的「新项目/新任务」。
+- `locales/*.json`（10 个）：新增 `删除项目`、`删除待办`、两条删除问句、子任务数量句，并补上原先缺失的 `新项目`。
+- `crates/app/src/app/testscript.rs`（仅 debug 构建）：新增 `note-add-project`、`todo-message` 两条测试命令，用于脚本化验收弹窗。
+- `README.md`：使用说明与「与上游的差别」表补上这两项。
+
+**验证**：
+- `cargo fmt --all --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo test --workspace` 全绿：**880 passed / 0 failed / 2 ignored**；`python scripts/check-locales.py` OK：975 条 × 11 语言。
+- 隔离 release 实例：点「新建项目」→ 正文新增 `[ ] 新项目`、`PecoFence.TodoDetail` 打开并显示该新任务；详情页标题呈选中态（`work\trial-detail\01-panel.png`）。
+- 脚本化 debug 实例（`work\trial-dialog\`）：新建项目后弹窗 `删除项目`；点「否」任务数不变、面板仍开；再点「是」任务删除、面板关闭（`dialog-1.png`、`dialog-2.png`，日志 `pecofence.dialogtest.log`）。
+- 真实安装版（`D:\Apps\PecoFence`）：新建项目后任务 14→15、详情窗口打开；键盘 11×Tab+Enter 触到删除按钮 → 原生弹窗「删除项目 / 要删除项目“新项目”吗？」（`work\trial-dialog\real-02-dialog.png`），点「否」任务数仍 15、面板保持；为保持真实数据干净，验收后退出应用、回写验收前 `config.json` 并重启（`restore-config.ps1`），任务数回到 14、正文与验收前一致。
+- 构建：release `target\release\pecofence.exe` SHA256 `3574697395AC25F5B6F98F7AC44ACCD8BBAB5E282753AAE9EC977AAD0B99D222`，与安装版一致；安装前备份 `D:\Apps\PecoFence.backup-before-todo-20261124-1048`。
+
+**未完成/注意**：175% DPI 下 PrintWindow 截不到详情页底部「删除/关闭」按钮和页面右侧（旧版本截图也有同样裁剪，属 WebView2 合成区域限制，不是本次改动）；弹窗与删除路径已由上列证据覆盖。删除不进入 Ctrl+Z 撤销栈（与之前一致）。
+
 ## 2026-11-22 傍晚：启动环境清洗（修复「从 PecoFence 启动的程序秒退」）
 
 **现象**：从 PecoFence 点 Clash 图标（Electron 程序）——无窗口、任务管理器无进程、Clash 日志一条没有；桌面/开始菜单直接启动却正常。开机后第一次从 PecoFence 启动能成功，之后一直失败。
